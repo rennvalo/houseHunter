@@ -61,15 +61,13 @@
                             <h3 class="font-semibold text-gray-800 mb-3">Features</h3>
                             
                             <!-- Garage -->
-                            <div class="space-y-2 mb-3">
-                                <label class="flex items-center space-x-2">
-                                    <input type="checkbox" id="has_garage" class="rounded">
-                                    <span class="text-sm">Has Garage <span class="text-green-600">(+1)</span></span>
+                            <div class="mb-3">
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                    Garage (# of cars) <span class="text-green-600">(+1 per car)</span>
                                 </label>
-                                <label class="flex items-center space-x-2 ml-6">
-                                    <input type="checkbox" id="two_car_garage" class="rounded">
-                                    <span class="text-sm">Two-Car Garage <span class="text-green-600">(+2)</span></span>
-                                </label>
+                                <input type="number" id="garage_cars" min="0" value="0"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0, 1, 2, 3, etc.">
                             </div>
 
                             <!-- Bathrooms -->
@@ -113,10 +111,78 @@
                                     <input type="checkbox" id="curb_appeal" class="rounded">
                                     <span class="text-sm">Curb Appeal <span class="text-green-600">(+1)</span></span>
                                 </label>
-                                <label class="flex items-center space-x-2">
-                                    <input type="checkbox" id="modern_appliances" class="rounded">
-                                    <span class="text-sm">Modern Appliances <span class="text-green-600">(+1)</span></span>
-                                </label>
+                            </div>
+
+                            <!-- Appliances -->
+                            <div class="mt-3 pt-3 border-t">
+                                <h4 class="font-semibold text-gray-700 mb-2">
+                                    Appliances <span class="text-xs text-gray-500">(Old: +1, Modern: +2)</span>
+                                </h4>
+                                <div class="space-y-2" id="appliancesContainer">
+                                    <!-- Dishwasher -->
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="app_dishwasher" class="rounded appliance-checkbox" data-appliance="dishwasher">
+                                        <span class="text-sm w-24">Dishwasher</span>
+                                        <select id="app_dishwasher_age" class="text-sm px-2 py-1 border border-gray-300 rounded" disabled>
+                                            <option value="old">Old (+1)</option>
+                                            <option value="modern">Modern (+2)</option>
+                                        </select>
+                                    </div>
+                                    <!-- Range -->
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="app_range" class="rounded appliance-checkbox" data-appliance="range">
+                                        <span class="text-sm w-24">Range</span>
+                                        <select id="app_range_age" class="text-sm px-2 py-1 border border-gray-300 rounded" disabled>
+                                            <option value="old">Old (+1)</option>
+                                            <option value="modern">Modern (+2)</option>
+                                        </select>
+                                    </div>
+                                    <!-- Oven -->
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="app_oven" class="rounded appliance-checkbox" data-appliance="oven">
+                                        <span class="text-sm w-24">Oven</span>
+                                        <select id="app_oven_age" class="text-sm px-2 py-1 border border-gray-300 rounded" disabled>
+                                            <option value="old">Old (+1)</option>
+                                            <option value="modern">Modern (+2)</option>
+                                        </select>
+                                    </div>
+                                    <!-- Fridge -->
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="app_fridge" class="rounded appliance-checkbox" data-appliance="fridge">
+                                        <span class="text-sm w-24">Fridge</span>
+                                        <select id="app_fridge_age" class="text-sm px-2 py-1 border border-gray-300 rounded" disabled>
+                                            <option value="old">Old (+1)</option>
+                                            <option value="modern">Modern (+2)</option>
+                                        </select>
+                                    </div>
+                                    <!-- Washer -->
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="app_washer" class="rounded appliance-checkbox" data-appliance="washer">
+                                        <span class="text-sm w-24">Washer</span>
+                                        <select id="app_washer_age" class="text-sm px-2 py-1 border border-gray-300 rounded" disabled>
+                                            <option value="old">Old (+1)</option>
+                                            <option value="modern">Modern (+2)</option>
+                                        </select>
+                                    </div>
+                                    <!-- Dryer -->
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="app_dryer" class="rounded appliance-checkbox" data-appliance="dryer">
+                                        <span class="text-sm w-24">Dryer</span>
+                                        <select id="app_dryer_age" class="text-sm px-2 py-1 border border-gray-300 rounded" disabled>
+                                            <option value="old">Old (+1)</option>
+                                            <option value="modern">Modern (+2)</option>
+                                        </select>
+                                    </div>
+                                    <!-- Microwave -->
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="app_microwave" class="rounded appliance-checkbox" data-appliance="microwave">
+                                        <span class="text-sm w-24">Microwave</span>
+                                        <select id="app_microwave_age" class="text-sm px-2 py-1 border border-gray-300 rounded" disabled>
+                                            <option value="old">Old (+1)</option>
+                                            <option value="modern">Modern (+2)</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- HOA -->
@@ -231,18 +297,27 @@
         document.getElementById('addHouseForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Collect appliances data
+            const appliances = {};
+            document.querySelectorAll('.appliance-checkbox').forEach(checkbox => {
+                if (checkbox.checked) {
+                    const applianceName = checkbox.dataset.appliance;
+                    const ageSelect = document.getElementById(`app_${applianceName}_age`);
+                    appliances[applianceName] = ageSelect.value;
+                }
+            });
+            
             const houseData = {
                 address: document.getElementById('address').value,
                 notes: document.getElementById('notes').value || null,
                 features: {
-                    has_garage: document.getElementById('has_garage').checked,
-                    two_car_garage: document.getElementById('two_car_garage').checked,
+                    garage_cars: parseInt(document.getElementById('garage_cars').value) || 0,
                     bathrooms: parseInt(document.getElementById('bathrooms').value),
                     bedrooms: parseInt(document.getElementById('bedrooms').value),
                     square_feet: parseInt(document.getElementById('square_feet').value) || 0,
                     nice_backyard: document.getElementById('nice_backyard').checked,
                     curb_appeal: document.getElementById('curb_appeal').checked,
-                    modern_appliances: document.getElementById('modern_appliances').checked,
+                    appliances: appliances,
                     has_hoa: document.getElementById('has_hoa').checked,
                     hoa_monthly_fee: parseInt(document.getElementById('hoa_monthly_fee').value) || 0
                 }
@@ -406,19 +481,6 @@
             document.getElementById('addHouseForm').reset();
         }
 
-        // Auto-update garage checkboxes
-        document.getElementById('two_car_garage').addEventListener('change', (e) => {
-            if (e.target.checked) {
-                document.getElementById('has_garage').checked = true;
-            }
-        });
-
-        document.getElementById('has_garage').addEventListener('change', (e) => {
-            if (!e.target.checked) {
-                document.getElementById('two_car_garage').checked = false;
-            }
-        });
-
         // Toggle HOA fee input visibility
         document.getElementById('has_hoa').addEventListener('change', (e) => {
             const feeContainer = document.getElementById('hoaFeeContainer');
@@ -428,6 +490,18 @@
                 feeContainer.classList.add('hidden');
                 document.getElementById('hoa_monthly_fee').value = 0;
             }
+        });
+
+        // Handle appliance checkbox changes
+        document.querySelectorAll('.appliance-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const applianceName = e.target.dataset.appliance;
+                const ageSelect = document.getElementById(`app_${applianceName}_age`);
+                ageSelect.disabled = !e.target.checked;
+                if (!e.target.checked) {
+                    ageSelect.value = 'old'; // Reset to default
+                }
+            });
         });
 
         // Load houses on page load

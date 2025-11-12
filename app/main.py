@@ -103,14 +103,20 @@ async def seed_data():
         {
             "address": "123 Oak Street, Springfield",
             "features": {
-                "has_garage": True,
-                "two_car_garage": True,
+                "garage_cars": 2,
                 "bathrooms": 3,
                 "bedrooms": 4,
                 "square_feet": 2000,
                 "nice_backyard": True,
                 "curb_appeal": True,
-                "modern_appliances": True,
+                "appliances": {
+                    "dishwasher": "modern",
+                    "range": "modern",
+                    "oven": "modern",
+                    "fridge": "modern",
+                    "washer": "modern",
+                    "dryer": "modern"
+                },
                 "has_hoa": False,
                 "hoa_monthly_fee": 0
             },
@@ -119,14 +125,17 @@ async def seed_data():
         {
             "address": "456 Maple Avenue, Riverside",
             "features": {
-                "has_garage": True,
-                "two_car_garage": False,
+                "garage_cars": 1,
                 "bathrooms": 2,
                 "bedrooms": 3,
                 "square_feet": 1200,
                 "nice_backyard": False,
                 "curb_appeal": True,
-                "modern_appliances": False,
+                "appliances": {
+                    "dishwasher": "old",
+                    "range": "old",
+                    "fridge": "old"
+                },
                 "has_hoa": True,
                 "hoa_monthly_fee": 30
             },
@@ -135,14 +144,16 @@ async def seed_data():
         {
             "address": "789 Pine Road, Lakeside",
             "features": {
-                "has_garage": False,
-                "two_car_garage": False,
+                "garage_cars": 0,
                 "bathrooms": 2,
                 "bedrooms": 2,
                 "square_feet": 900,
                 "nice_backyard": True,
                 "curb_appeal": False,
-                "modern_appliances": True,
+                "appliances": {
+                    "microwave": "modern",
+                    "fridge": "modern"
+                },
                 "has_hoa": True,
                 "hoa_monthly_fee": 400
             },

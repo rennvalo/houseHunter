@@ -1,17 +1,16 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict
 
 
 class HouseFeatures(BaseModel):
     """Features of a house used for scoring"""
-    has_garage: bool = False
-    two_car_garage: bool = False
+    garage_cars: int = 0  # Number of cars the garage can hold
     bathrooms: int = 1  # 1, 2, 3, or more
     bedrooms: int = 1   # 1, 2, 3, 4, or more
     square_feet: int = 0  # Square footage of the house
     nice_backyard: bool = False
     curb_appeal: bool = False
-    modern_appliances: bool = False
+    appliances: Dict[str, str] = {}  # {"dishwasher": "modern", "range": "old", ...}
     has_hoa: bool = False
     hoa_monthly_fee: int = 0  # Monthly HOA fee in dollars
 
@@ -55,17 +54,13 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
     breakdown = {}
     total = 0
     
-    # Garage scoring
-    if features.two_car_garage:
-        garage_score = 2
-        breakdown['garage'] = '+2 (Two-car garage)'
-    elif features.has_garage:
-        garage_score = 1
-        breakdown['garage'] = '+1 (Has garage)'
+    # Garage scoring (1 point per car)
+    if features.garage_cars > 0:
+        garage_score = features.garage_cars
+        breakdown['garage'] = f'+{garage_score} ({features.garage_cars}-car garage)'
+        total += garage_score
     else:
-        garage_score = -1
-        breakdown['garage'] = '-1 (No garage)'
-    total += garage_score
+        breakdown['garage'] = '+0 (No garage)'
     
     # Bathroom scoring
     if features.bathrooms >= 3:
@@ -118,13 +113,22 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
     else:
         breakdown['curb_appeal'] = '+0 (No curb appeal)'
     
-    # Appliances scoring
-    if features.modern_appliances:
-        appliances_score = 1
-        breakdown['appliances'] = '+1 (Modern appliances)'
-        total += appliances_score
+    # Appliances scoring (old = 1 point, modern = 2 points each)
+    if features.appliances:
+        appliance_score = 0
+        appliance_details = []
+        for appliance, condition in features.appliances.items():
+            if condition == "modern":
+                appliance_score += 2
+                appliance_details.append(f"{appliance} (modern, +2)")
+            elif condition == "old":
+                appliance_score += 1
+                appliance_details.append(f"{appliance} (old, +1)")
+        
+        breakdown['appliances'] = f'+{appliance_score} ({len(features.appliances)} appliances: {", ".join(appliance_details)})'
+        total += appliance_score
     else:
-        breakdown['appliances'] = '+0 (No modern appliances)'
+        breakdown['appliances'] = '+0 (No appliances listed)'
     
     # HOA scoring
     if features.has_hoa:
