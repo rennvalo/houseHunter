@@ -178,6 +178,34 @@ async def clear_all():
     return {"message": f"Cleared {count} houses"}
 
 
+@app.post("/sync_houses")
+async def sync_houses(houses: List[dict]):
+    """
+    Sync houses from browser local storage to server memory.
+    This restores the session when the user returns.
+    """
+    global houses_db, next_id
+    
+    # Clear current in-memory storage
+    houses_db = {}
+    
+    # Find the highest ID to set next_id correctly
+    max_id = 0
+    
+    for house_data in houses:
+        house_id = house_data.get("id")
+        if house_id:
+            houses_db[house_id] = house_data
+            max_id = max(max_id, house_id)
+    
+    next_id = max_id + 1
+    
+    return {
+        "message": f"Synced {len(houses_db)} houses from browser storage",
+        "count": len(houses_db)
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -168,6 +168,55 @@
     </div>
 
     <script>
+        // LocalStorage key for houses
+        const STORAGE_KEY = 'househunter_houses';
+
+        // Save houses to localStorage
+        function saveToLocalStorage(houses) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(houses));
+                console.log('Saved to localStorage:', houses.length, 'houses');
+            } catch (error) {
+                console.error('Error saving to localStorage:', error);
+            }
+        }
+
+        // Load houses from localStorage
+        function loadFromLocalStorage() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (error) {
+                console.error('Error loading from localStorage:', error);
+                return [];
+            }
+        }
+
+        // Sync houses from localStorage to server on startup
+        async function syncFromLocalStorage() {
+            const localHouses = loadFromLocalStorage();
+            
+            if (localHouses.length > 0) {
+                console.log('Syncing', localHouses.length, 'houses from localStorage to server...');
+                try {
+                    const response = await fetch('/sync_houses', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(localHouses)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('Sync successful:', result.message);
+                    }
+                } catch (error) {
+                    console.error('Error syncing from localStorage:', error);
+                }
+            }
+        }
+
         // Form submission
         document.getElementById('addHouseForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -214,6 +263,9 @@
             try {
                 const response = await fetch('/houses');
                 const houses = await response.json();
+                
+                // Save to localStorage whenever we load houses
+                saveToLocalStorage(houses);
                 
                 const container = document.getElementById('housesContainer');
                 const countEl = document.getElementById('houseCount');
@@ -328,6 +380,9 @@
                 });
                 
                 if (response.ok) {
+                    // Clear localStorage as well
+                    localStorage.removeItem(STORAGE_KEY);
+                    console.log('Cleared localStorage');
                     loadHouses();
                 }
             } catch (error) {
@@ -365,7 +420,12 @@
         });
 
         // Load houses on page load
-        loadHouses();
+        window.addEventListener('DOMContentLoaded', async () => {
+            // First, sync any saved houses from localStorage to server
+            await syncFromLocalStorage();
+            // Then load and display all houses
+            loadHouses();
+        });
     </script>
 </body>
 </html>
