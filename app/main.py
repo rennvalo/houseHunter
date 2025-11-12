@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from models import House, HouseResponse, HouseFeatures, calculate_score
+import db
 
 app = FastAPI(title="HouseHunter", description="House Rating & Decision Tool")
 
@@ -13,10 +14,6 @@ app = FastAPI(title="HouseHunter", description="House Rating & Decision Tool")
 static_path = Path(__file__).parent / "static"
 static_path.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
-
-# In-memory storage (session-based, resets on restart)
-houses_db = {}
-next_id = 1
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -31,23 +28,17 @@ async def read_root():
 @app.post("/add_house", response_model=HouseResponse)
 async def add_house(house: House):
     """Add a new house with features and calculate its score"""
-    global next_id
-    
     # Calculate score
     score, breakdown = calculate_score(house.features)
     
-    # Store house
-    house_data = {
-        "id": next_id,
-        "address": house.address,
-        "features": house.features.dict(),
-        "notes": house.notes,
-        "score": score,
-        "score_breakdown": breakdown
-    }
-    
-    houses_db[next_id] = house_data
-    next_id += 1
+    # Store house in database
+    house_data = db.add_house(
+        address=house.address,
+        features=house.features.dict(),
+        notes=house.notes,
+        score=score,
+        score_breakdown=breakdown
+    )
     
     return HouseResponse(**house_data)
 
@@ -55,50 +46,48 @@ async def add_house(house: House):
 @app.get("/houses", response_model=List[HouseResponse])
 async def get_houses():
     """Get all houses sorted by score (highest first)"""
-    houses_list = list(houses_db.values())
-    # Sort by score descending
-    houses_list.sort(key=lambda x: x["score"], reverse=True)
+    houses_list = db.get_all_houses(order_by_score=True)
     return [HouseResponse(**house) for house in houses_list]
 
 
 @app.get("/house/{house_id}", response_model=HouseResponse)
 async def get_house(house_id: int):
     """Get a specific house by ID"""
-    if house_id not in houses_db:
+    house = db.get_house_by_id(house_id)
+    if not house:
         raise HTTPException(status_code=404, detail="House not found")
-    return HouseResponse(**houses_db[house_id])
+    return HouseResponse(**house)
 
 
 @app.delete("/house/{house_id}")
 async def delete_house(house_id: int):
     """Delete a house by ID"""
-    if house_id not in houses_db:
+    house = db.get_house_by_id(house_id)
+    if not house:
         raise HTTPException(status_code=404, detail="House not found")
     
-    deleted = houses_db.pop(house_id)
-    return {"message": "House deleted successfully", "address": deleted["address"]}
+    db.delete_house(house_id)
+    return {"message": "House deleted successfully", "address": house["address"]}
 
 
 @app.put("/house/{house_id}", response_model=HouseResponse)
 async def update_house(house_id: int, house: House):
     """Update an existing house by ID"""
-    if house_id not in houses_db:
-        raise HTTPException(status_code=404, detail="House not found")
-    
     # Calculate new score
     score, breakdown = calculate_score(house.features)
     
-    # Update house data
-    house_data = {
-        "id": house_id,
-        "address": house.address,
-        "features": house.features.dict(),
-        "notes": house.notes,
-        "score": score,
-        "score_breakdown": breakdown
-    }
+    # Update house in database
+    house_data = db.update_house(
+        house_id=house_id,
+        address=house.address,
+        features=house.features.dict(),
+        notes=house.notes,
+        score=score,
+        score_breakdown=breakdown
+    )
     
-    houses_db[house_id] = house_data
+    if not house_data:
+        raise HTTPException(status_code=404, detail="House not found")
     
     return HouseResponse(**house_data)
 
@@ -106,10 +95,10 @@ async def update_house(house_id: int, house: House):
 @app.get("/score/{house_id}")
 async def get_score(house_id: int):
     """Get detailed scoring breakdown for a house"""
-    if house_id not in houses_db:
+    house = db.get_house_by_id(house_id)
+    if not house:
         raise HTTPException(status_code=404, detail="House not found")
     
-    house = houses_db[house_id]
     return {
         "id": house_id,
         "address": house["address"],
@@ -121,8 +110,6 @@ async def get_score(house_id: int):
 @app.post("/seed_data")
 async def seed_data():
     """Add example houses for testing"""
-    global next_id
-    
     examples = [
         {
             "address": "123 Oak Street, Springfield",
@@ -214,18 +201,15 @@ async def seed_data():
         house = House(**example)
         score, breakdown = calculate_score(house.features)
         
-        house_data = {
-            "id": next_id,
-            "address": house.address,
-            "features": house.features.dict(),
-            "notes": house.notes,
-            "score": score,
-            "score_breakdown": breakdown
-        }
+        house_data = db.add_house(
+            address=house.address,
+            features=house.features.dict(),
+            notes=house.notes,
+            score=score,
+            score_breakdown=breakdown
+        )
         
-        houses_db[next_id] = house_data
         added.append(HouseResponse(**house_data))
-        next_id += 1
     
     return {"message": f"Added {len(added)} example houses", "houses": added}
 
@@ -233,38 +217,21 @@ async def seed_data():
 @app.delete("/clear_all")
 async def clear_all():
     """Clear all houses (reset session)"""
-    global houses_db, next_id
-    count = len(houses_db)
-    houses_db = {}
-    next_id = 1
+    count = db.clear_all_houses()
     return {"message": f"Cleared {count} houses"}
 
 
 @app.post("/sync_houses")
 async def sync_houses(houses: List[dict]):
     """
-    Sync houses from browser local storage to server memory.
-    This restores the session when the user returns.
+    Sync houses from browser local storage to server database.
+    This restores the session when the user returns or if database is empty.
     """
-    global houses_db, next_id
-    
-    # Clear current in-memory storage
-    houses_db = {}
-    
-    # Find the highest ID to set next_id correctly
-    max_id = 0
-    
-    for house_data in houses:
-        house_id = house_data.get("id")
-        if house_id:
-            houses_db[house_id] = house_data
-            max_id = max(max_id, house_id)
-    
-    next_id = max_id + 1
+    count = db.sync_houses_from_browser(houses)
     
     return {
-        "message": f"Synced {len(houses_db)} houses from browser storage",
-        "count": len(houses_db)
+        "message": f"Synced {count} houses from browser storage to database",
+        "count": count
     }
 
 

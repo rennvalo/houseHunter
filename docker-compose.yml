@@ -9,6 +9,7 @@ services:
       - "7777:7777"
     volumes:
       - ./app:/app
+      - ./database:/database
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
