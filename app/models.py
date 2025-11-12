@@ -6,6 +6,7 @@ class HouseFeatures(BaseModel):
     """Features of a house used for scoring"""
     garage_cars: int = 0  # Number of cars the garage can hold
     bathrooms: int = 1  # 1, 2, 3, or more
+    bathroom_quality: str = "normal"  # normal (+1), modern (+2), needs_updates (-1)
     bedrooms: int = 1   # 1, 2, 3, 4, or more
     square_feet: int = 0  # Square footage of the house
     lot_acres: float = 0.0  # Lot size in acres (+1 per 0.25 acres)
@@ -14,6 +15,7 @@ class HouseFeatures(BaseModel):
     appliances: Dict[str, str] = {}  # {"dishwasher": "modern", "range": "old", ...}
     basement: int = 0  # 0=none, 1=unfinished (+1), 2=finished (+2)
     privacy: str = "normal"  # very_private (+3), private (+2), normal (+1), not_private (-1)
+    noise_level: str = "normal"  # quiet (+1), normal (0), loud (-1)
     has_deck: bool = False  # +1
     patio_potential: bool = False  # +2
     has_pool: bool = False  # +3
@@ -70,9 +72,20 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
     else:
         breakdown['garage'] = '+0 (No garage)'
     
-    # Bathroom scoring (1 point per bathroom)
+    # Bathroom scoring (1 point per bathroom, modified by quality)
     bathroom_score = features.bathrooms
-    breakdown['bathrooms'] = f'+{bathroom_score} ({features.bathrooms} bathroom{"s" if features.bathrooms != 1 else ""})'
+    
+    # Apply quality modifier
+    quality_scores = {
+        "modern": (2, "modern"),
+        "normal": (1, "normal"),
+        "needs_updates": (-1, "needs updates")
+    }
+    quality_multiplier, quality_label = quality_scores.get(features.bathroom_quality, (1, "normal"))
+    bathroom_score = bathroom_score * quality_multiplier
+    
+    sign = '+' if bathroom_score >= 0 else ''
+    breakdown['bathrooms'] = f'{sign}{bathroom_score} ({features.bathrooms} bathroom{"s" if features.bathrooms != 1 else ""}, {quality_label})'
     total += bathroom_score
     
     # Bedroom scoring (1 point per bedroom)
@@ -112,22 +125,31 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
     else:
         breakdown['curb_appeal'] = '+0 (No curb appeal)'
     
-    # Appliances scoring (old = 1 point, modern = 2 points each)
-    if features.appliances:
-        appliance_score = 0
-        appliance_details = []
-        for appliance, condition in features.appliances.items():
-            if condition == "modern":
-                appliance_score += 2
-                appliance_details.append(f"{appliance} (modern, +2)")
-            elif condition == "old":
-                appliance_score += 1
-                appliance_details.append(f"{appliance} (old, +1)")
-        
-        breakdown['appliances'] = f'+{appliance_score} ({len(features.appliances)} appliances: {", ".join(appliance_details)})'
-        total += appliance_score
-    else:
-        breakdown['appliances'] = '+0 (No appliances listed)'
+    # Appliances scoring (old = 1 point, modern = 2 points each, missing = -2 points)
+    # Define all possible appliances
+    all_appliances = ["dishwasher", "range", "oven", "fridge", "washer", "dryer", "microwave"]
+    appliance_score = 0
+    appliance_details = []
+    
+    # Score appliances that are present
+    for appliance, condition in features.appliances.items():
+        if condition == "modern":
+            appliance_score += 2
+            appliance_details.append(f"{appliance} (modern, +2)")
+        elif condition == "old":
+            appliance_score += 1
+            appliance_details.append(f"{appliance} (old, +1)")
+    
+    # Deduct points for missing appliances
+    present_appliances = set(features.appliances.keys())
+    missing_appliances = [app for app in all_appliances if app not in present_appliances]
+    for appliance in missing_appliances:
+        appliance_score -= 2
+        appliance_details.append(f"{appliance} (missing, -2)")
+    
+    sign = '+' if appliance_score >= 0 else ''
+    breakdown['appliances'] = f'{sign}{appliance_score} ({len(features.appliances)} present, {len(missing_appliances)} missing: {", ".join(appliance_details)})'
+    total += appliance_score
     
     # Basement scoring (unfinished +1, finished +2)
     if features.basement == 2:
@@ -151,6 +173,16 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
     privacy_score, privacy_label = privacy_scores.get(features.privacy, (1, "Normal privacy"))
     breakdown['privacy'] = f'{privacy_score:+d} ({privacy_label})'
     total += privacy_score
+    
+    # Noise level scoring
+    noise_scores = {
+        "quiet": (1, "Quiet"),
+        "normal": (0, "Normal noise"),
+        "loud": (-1, "Loud")
+    }
+    noise_score, noise_label = noise_scores.get(features.noise_level, (0, "Normal noise"))
+    breakdown['noise_level'] = f'{noise_score:+d} ({noise_label})'
+    total += noise_score
     
     # Deck scoring
     if features.has_deck:
