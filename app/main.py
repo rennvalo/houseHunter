@@ -79,6 +79,30 @@ async def delete_house(house_id: int):
     return {"message": "House deleted successfully", "address": deleted["address"]}
 
 
+@app.put("/house/{house_id}", response_model=HouseResponse)
+async def update_house(house_id: int, house: House):
+    """Update an existing house by ID"""
+    if house_id not in houses_db:
+        raise HTTPException(status_code=404, detail="House not found")
+    
+    # Calculate new score
+    score, breakdown = calculate_score(house.features)
+    
+    # Update house data
+    house_data = {
+        "id": house_id,
+        "address": house.address,
+        "features": house.features.dict(),
+        "notes": house.notes,
+        "score": score,
+        "score_breakdown": breakdown
+    }
+    
+    houses_db[house_id] = house_data
+    
+    return HouseResponse(**house_data)
+
+
 @app.get("/score/{house_id}")
 async def get_score(house_id: int):
     """Get detailed scoring breakdown for a house"""

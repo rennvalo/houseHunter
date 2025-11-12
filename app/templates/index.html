@@ -38,8 +38,15 @@
             <!-- Add House Form -->
             <div class="lg:col-span-1">
                 <div class="glass-effect rounded-lg shadow-xl p-6">
-                    <h2 class="text-2xl font-bold mb-4 text-gray-800">Add a House</h2>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 id="formTitle" class="text-2xl font-bold text-gray-800">Add a House</h2>
+                        <button type="button" id="cancelEditBtn" onclick="cancelEdit()" 
+                            class="hidden text-sm px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition">
+                            Cancel Edit
+                        </button>
+                    </div>
                     <form id="addHouseForm" class="space-y-4">
+                        <input type="hidden" id="editHouseId" value="">
                         <!-- Address -->
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1">Address *</label>
@@ -202,7 +209,7 @@
 
                         <!-- Buttons -->
                         <div class="flex gap-2 pt-4">
-                            <button type="submit" 
+                            <button type="submit" id="submitBtn"
                                 class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition font-semibold">
                                 Add House
                             </button>
@@ -324,23 +331,38 @@
             };
 
             try {
-                const response = await fetch('/add_house', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(houseData)
-                });
+                const editHouseId = document.getElementById('editHouseId').value;
+                let response;
+                
+                if (editHouseId) {
+                    // Update existing house
+                    response = await fetch(`/house/${editHouseId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(houseData)
+                    });
+                } else {
+                    // Add new house
+                    response = await fetch('/add_house', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(houseData)
+                    });
+                }
 
                 if (response.ok) {
                     resetForm();
                     loadHouses();
                 } else {
-                    alert('Error adding house');
+                    alert('Error saving house');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error adding house');
+                alert('Error saving house');
             }
         });
 
@@ -393,6 +415,10 @@
                                 class="flex-1 bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm hover:bg-blue-200 transition">
                                 View Details
                             </button>
+                            <button onclick="editHouse(${house.id})" 
+                                class="flex-1 bg-green-100 text-green-700 px-3 py-1 rounded text-sm hover:bg-green-200 transition">
+                                Edit
+                            </button>
                             <button onclick="deleteHouse(${house.id})" 
                                 class="bg-red-100 text-red-700 px-3 py-1 rounded text-sm hover:bg-red-200 transition">
                                 Delete
@@ -420,6 +446,76 @@
             } catch (error) {
                 console.error('Error:', error);
             }
+        }
+
+        // Edit house
+        async function editHouse(id) {
+            try {
+                const response = await fetch(`/house/${id}`);
+                const house = await response.json();
+                
+                // Populate form with house data
+                document.getElementById('editHouseId').value = house.id;
+                document.getElementById('address').value = house.address;
+                document.getElementById('notes').value = house.notes || '';
+                
+                // Populate features
+                document.getElementById('garage_cars').value = house.features.garage_cars || 0;
+                document.getElementById('bathrooms').value = house.features.bathrooms;
+                document.getElementById('bedrooms').value = house.features.bedrooms;
+                document.getElementById('square_feet').value = house.features.square_feet || 0;
+                document.getElementById('nice_backyard').checked = house.features.nice_backyard;
+                document.getElementById('curb_appeal').checked = house.features.curb_appeal;
+                document.getElementById('has_hoa').checked = house.features.has_hoa;
+                document.getElementById('hoa_monthly_fee').value = house.features.hoa_monthly_fee || 0;
+                
+                // Show/hide HOA fee container
+                const feeContainer = document.getElementById('hoaFeeContainer');
+                if (house.features.has_hoa) {
+                    feeContainer.classList.remove('hidden');
+                } else {
+                    feeContainer.classList.add('hidden');
+                }
+                
+                // Populate appliances
+                // First, uncheck all appliances
+                document.querySelectorAll('.appliance-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                    const applianceName = checkbox.dataset.appliance;
+                    const ageSelect = document.getElementById(`app_${applianceName}_age`);
+                    ageSelect.disabled = true;
+                    ageSelect.value = 'old';
+                });
+                
+                // Then check and set the ones from the house
+                if (house.features.appliances) {
+                    Object.entries(house.features.appliances).forEach(([appliance, condition]) => {
+                        const checkbox = document.getElementById(`app_${appliance}`);
+                        const ageSelect = document.getElementById(`app_${appliance}_age`);
+                        if (checkbox) {
+                            checkbox.checked = true;
+                            ageSelect.disabled = false;
+                            ageSelect.value = condition;
+                        }
+                    });
+                }
+                
+                // Update UI for edit mode
+                document.getElementById('formTitle').textContent = 'Edit House';
+                document.getElementById('submitBtn').textContent = 'Update House';
+                document.getElementById('cancelEditBtn').classList.remove('hidden');
+                
+                // Scroll to form
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error loading house for editing');
+            }
+        }
+
+        // Cancel edit mode
+        function cancelEdit() {
+            resetForm();
         }
 
         // View details
@@ -479,6 +575,19 @@
         // Reset form
         function resetForm() {
             document.getElementById('addHouseForm').reset();
+            document.getElementById('editHouseId').value = '';
+            
+            // Reset UI to add mode
+            document.getElementById('formTitle').textContent = 'Add a House';
+            document.getElementById('submitBtn').textContent = 'Add House';
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+            
+            // Reset appliance selects
+            document.querySelectorAll('.appliance-checkbox').forEach(checkbox => {
+                const applianceName = checkbox.dataset.appliance;
+                const ageSelect = document.getElementById(`app_${applianceName}_age`);
+                ageSelect.disabled = true;
+            });
         }
 
         // Toggle HOA fee input visibility
