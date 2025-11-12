@@ -8,6 +8,7 @@ class HouseFeatures(BaseModel):
     two_car_garage: bool = False
     bathrooms: int = 1  # 1, 2, 3, or more
     bedrooms: int = 1   # 1, 2, 3, 4, or more
+    square_feet: int = 0  # Square footage of the house
     nice_backyard: bool = False
     curb_appeal: bool = False
     modern_appliances: bool = False
@@ -92,6 +93,14 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
         bedroom_score = 0
         breakdown['bedrooms'] = f'+0 ({features.bedrooms} bedroom{"s" if features.bedrooms != 1 else ""})'
     total += bedroom_score
+    
+    # Square feet scoring (1 point per 500 sq ft)
+    if features.square_feet > 0:
+        sqft_score = features.square_feet // 500
+        breakdown['square_feet'] = f'+{sqft_score} ({features.square_feet} sq ft)'
+        total += sqft_score
+    else:
+        breakdown['square_feet'] = '+0 (No square footage provided)'
     
     # Backyard scoring
     if features.nice_backyard:
