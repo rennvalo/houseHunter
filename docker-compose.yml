@@ -14,3 +14,9 @@ services:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     container_name: househunter-app
+    networks:
+      - frontend  # Same network as Nginx Proxy Manager
+
+networks:
+  frontend:
+    external: true  # Ensure this matches an existing external
