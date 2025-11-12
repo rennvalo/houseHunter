@@ -131,6 +131,7 @@ async def seed_data():
                 "bathrooms": 3,
                 "bedrooms": 4,
                 "square_feet": 2000,
+                "lot_acres": 0.5,
                 "nice_backyard": True,
                 "curb_appeal": True,
                 "appliances": {
@@ -141,6 +142,13 @@ async def seed_data():
                     "washer": "modern",
                     "dryer": "modern"
                 },
+                "basement": 2,
+                "privacy": "very_private",
+                "has_deck": True,
+                "patio_potential": False,
+                "has_pool": True,
+                "near_recreation": True,
+                "walking_shopping": False,
                 "has_hoa": False,
                 "hoa_monthly_fee": 0
             },
@@ -153,6 +161,7 @@ async def seed_data():
                 "bathrooms": 2,
                 "bedrooms": 3,
                 "square_feet": 1200,
+                "lot_acres": 0.25,
                 "nice_backyard": False,
                 "curb_appeal": True,
                 "appliances": {
@@ -160,6 +169,13 @@ async def seed_data():
                     "range": "old",
                     "fridge": "old"
                 },
+                "basement": 1,
+                "privacy": "normal",
+                "has_deck": False,
+                "patio_potential": True,
+                "has_pool": False,
+                "near_recreation": False,
+                "walking_shopping": True,
                 "has_hoa": True,
                 "hoa_monthly_fee": 30
             },
@@ -172,12 +188,20 @@ async def seed_data():
                 "bathrooms": 2,
                 "bedrooms": 2,
                 "square_feet": 900,
+                "lot_acres": 0.1,
                 "nice_backyard": True,
                 "curb_appeal": False,
                 "appliances": {
                     "microwave": "modern",
                     "fridge": "modern"
                 },
+                "basement": 0,
+                "privacy": "not_private",
+                "has_deck": False,
+                "patio_potential": False,
+                "has_pool": False,
+                "near_recreation": True,
+                "walking_shopping": False,
                 "has_hoa": True,
                 "hoa_monthly_fee": 400
             },

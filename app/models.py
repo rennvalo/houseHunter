@@ -8,9 +8,17 @@ class HouseFeatures(BaseModel):
     bathrooms: int = 1  # 1, 2, 3, or more
     bedrooms: int = 1   # 1, 2, 3, 4, or more
     square_feet: int = 0  # Square footage of the house
+    lot_acres: float = 0.0  # Lot size in acres (+1 per 0.25 acres)
     nice_backyard: bool = False
     curb_appeal: bool = False
     appliances: Dict[str, str] = {}  # {"dishwasher": "modern", "range": "old", ...}
+    basement: int = 0  # 0=none, 1=unfinished (+1), 2=finished (+2)
+    privacy: str = "normal"  # very_private (+3), private (+2), normal (+1), not_private (-1)
+    has_deck: bool = False  # +1
+    patio_potential: bool = False  # +2
+    has_pool: bool = False  # +3
+    near_recreation: bool = False  # +2
+    walking_shopping: bool = False  # +2
     has_hoa: bool = False
     hoa_monthly_fee: int = 0  # Monthly HOA fee in dollars
 
@@ -62,31 +70,14 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
     else:
         breakdown['garage'] = '+0 (No garage)'
     
-    # Bathroom scoring
-    if features.bathrooms >= 3:
-        bathroom_score = 2
-        breakdown['bathrooms'] = f'+2 ({features.bathrooms} bathrooms)'
-    elif features.bathrooms == 2:
-        bathroom_score = 1
-        breakdown['bathrooms'] = '+1 (2 bathrooms)'
-    else:
-        bathroom_score = 0
-        breakdown['bathrooms'] = f'+0 ({features.bathrooms} bathroom{"s" if features.bathrooms != 1 else ""})'
+    # Bathroom scoring (1 point per bathroom)
+    bathroom_score = features.bathrooms
+    breakdown['bathrooms'] = f'+{bathroom_score} ({features.bathrooms} bathroom{"s" if features.bathrooms != 1 else ""})'
     total += bathroom_score
     
-    # Bedroom scoring
-    if features.bedrooms >= 4:
-        bedroom_score = 4
-        breakdown['bedrooms'] = f'+4 ({features.bedrooms} bedrooms)'
-    elif features.bedrooms == 3:
-        bedroom_score = 2
-        breakdown['bedrooms'] = '+2 (3 bedrooms)'
-    elif features.bedrooms == 2:
-        bedroom_score = 1
-        breakdown['bedrooms'] = '+1 (2 bedrooms)'
-    else:
-        bedroom_score = 0
-        breakdown['bedrooms'] = f'+0 ({features.bedrooms} bedroom{"s" if features.bedrooms != 1 else ""})'
+    # Bedroom scoring (1 point per bedroom)
+    bedroom_score = features.bedrooms
+    breakdown['bedrooms'] = f'+{bedroom_score} ({features.bedrooms} bedroom{"s" if features.bedrooms != 1 else ""})'
     total += bedroom_score
     
     # Square feet scoring (1 point per 500 sq ft)
@@ -96,6 +87,14 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
         total += sqft_score
     else:
         breakdown['square_feet'] = '+0 (No square footage provided)'
+    
+    # Lot size scoring (1 point per 0.25 acres)
+    if features.lot_acres > 0:
+        lot_score = int(features.lot_acres / 0.25)
+        breakdown['lot_size'] = f'+{lot_score} ({features.lot_acres} acres)'
+        total += lot_score
+    else:
+        breakdown['lot_size'] = '+0 (No lot size provided)'
     
     # Backyard scoring
     if features.nice_backyard:
@@ -129,6 +128,69 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
         total += appliance_score
     else:
         breakdown['appliances'] = '+0 (No appliances listed)'
+    
+    # Basement scoring (unfinished +1, finished +2)
+    if features.basement == 2:
+        basement_score = 2
+        breakdown['basement'] = '+2 (Finished basement)'
+        total += basement_score
+    elif features.basement == 1:
+        basement_score = 1
+        breakdown['basement'] = '+1 (Unfinished basement)'
+        total += basement_score
+    else:
+        breakdown['basement'] = '+0 (No basement)'
+    
+    # Privacy scoring
+    privacy_scores = {
+        "very_private": (3, "Very private"),
+        "private": (2, "Private"),
+        "normal": (1, "Normal privacy"),
+        "not_private": (-1, "Not private")
+    }
+    privacy_score, privacy_label = privacy_scores.get(features.privacy, (1, "Normal privacy"))
+    breakdown['privacy'] = f'{privacy_score:+d} ({privacy_label})'
+    total += privacy_score
+    
+    # Deck scoring
+    if features.has_deck:
+        deck_score = 1
+        breakdown['deck'] = '+1 (Has deck)'
+        total += deck_score
+    else:
+        breakdown['deck'] = '+0 (No deck)'
+    
+    # Patio potential scoring
+    if features.patio_potential:
+        patio_score = 2
+        breakdown['patio_potential'] = '+2 (Patio potential)'
+        total += patio_score
+    else:
+        breakdown['patio_potential'] = '+0 (No patio potential)'
+    
+    # Pool scoring
+    if features.has_pool:
+        pool_score = 3
+        breakdown['pool'] = '+3 (Has pool)'
+        total += pool_score
+    else:
+        breakdown['pool'] = '+0 (No pool)'
+    
+    # Near recreation areas scoring
+    if features.near_recreation:
+        recreation_score = 2
+        breakdown['near_recreation'] = '+2 (Near recreation areas)'
+        total += recreation_score
+    else:
+        breakdown['near_recreation'] = '+0 (Not near recreation)'
+    
+    # Walking distance to shopping scoring
+    if features.walking_shopping:
+        shopping_score = 2
+        breakdown['walking_shopping'] = '+2 (Walking distance to shopping)'
+        total += shopping_score
+    else:
+        breakdown['walking_shopping'] = '+0 (Not walking distance to shopping)'
     
     # HOA scoring
     if features.has_hoa:
