@@ -1,0 +1,15 @@
+{
+  "name": "househunter",
+  "version": "1.0.0",
+  "description": "House rating and decision-making tool",
+  "scripts": {
+    "build": "tailwindcss -o ./app/static/output.css --minify",
+    "watch": "tailwindcss -o ./app/static/output.css --watch"
+  },
+  "keywords": ["house", "rating", "fastapi", "tailwind"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}
