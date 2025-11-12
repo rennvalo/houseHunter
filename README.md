@@ -1,19 +1,21 @@
 # 🏠 HouseHunter
 
-**A FastAPI-based web application that helps you make smart house decisions using a point-based scoring system.**
+**A FastAPI-based web application that helps you make smart house decisions using a comprehensive point-based scoring system.**
 
-HouseHunter lets you track potential houses, rate them based on key features (garage, bedrooms, bathrooms, backyard, etc.), and compare scores to make data-driven decisions.
+HouseHunter lets you track potential houses, rate them based on dozens of key features (garage, bedrooms, bathrooms, lot size, appliances, location, and more), and compare scores to make data-driven decisions. Your data persists in browser local storage, so your houses are saved even when you close the browser!
 
 ---
 
 ## ✨ Features
 
-- **Add Houses**: Input address, features, and notes
-- **Automatic Scoring**: Each house gets a score based on a point system
-- **Compare Houses**: View all houses sorted by score
-- **Session-Based**: All data is stored in-memory (resets on restart)
+- **Add & Edit Houses**: Input address, features, and notes - edit them anytime
+- **Automatic Scoring**: Each house gets a score based on a comprehensive point system
+- **Compare Houses**: View all houses sorted by score (highest first)
+- **Persistent Storage**: Data saved in browser localStorage AND in-memory
+- **Edit Mode**: Modify existing houses without losing data
 - **Modern UI**: Clean Tailwind CSS interface with house-themed background
 - **Docker Ready**: Run everything with a single command
+- **Mobile Responsive**: Works great on phones and tablets
 
 ---
 
@@ -21,46 +23,261 @@ HouseHunter lets you track potential houses, rate them based on key features (ga
 
 | Feature | Description | Points |
 |---------|-------------|--------|
-| **Garage** | Has garage | +1 |
-| | Two-car garage | +2 |
-| | No garage | -1 |
-| **Bathrooms** | 2 bathrooms | +1 |
-| | 3+ bathrooms | +2 |
-| **Bedrooms** | 2 bedrooms | +1 |
-| | 3 bedrooms | +2 |
-| | 4+ bedrooms | +4 |
+| **Garage** | Per car capacity | +1 per car |
+| **Bathrooms** | Per bathroom | +1 per bathroom |
+| **Bedrooms** | Per bedroom | +1 per bedroom |
+| **Square Feet** | Per 500 sq ft | +1 per 500 sq ft |
+| **Lot Size** | Per 0.25 acres | +1 per 0.25 acres |
 | **Backyard** | Nice backyard | +2 |
 | **Curb Appeal** | Has curb appeal | +1 |
-| **Appliances** | Modern appliances | +1 |
+| **Basement** | Unfinished basement | +1 |
+| | Finished basement | +2 |
+| **Privacy** | Very Private | +3 |
+| | Private | +2 |
+| | Normal | +1 |
+| | Not Private | -1 |
+| **Deck** | Has deck | +1 |
+| **Patio Potential** | Space for patio | +2 |
+| **Pool** | Has pool | +3 |
+| **Near Recreation** | Close to parks/trails | +2 |
+| **Walking to Shopping** | Walking distance | +2 |
+| **Appliances** | Old appliance | +1 each |
+| | Modern appliance | +2 each |
+| | (Dishwasher, Range, Oven, Fridge, Washer, Dryer, Microwave) | |
+| **HOA** | Has HOA | -1 |
+| | Per $100/month fee | -1 per $100 |
+
+**Example Scores:**
+- 3-car garage, 4 bedrooms, 3 bathrooms, 2000 sq ft, 0.5 acre = +15 points (before other features)
+- 6 modern appliances = +12 points
+- HOA with $300/month fee = -4 points
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (From Scratch)
 
 ### Prerequisites
 
-- Docker
-- Docker Compose
+- **Docker Desktop** installed and running
+  - Windows: [Download Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
+  - Mac: [Download Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)
+  - Linux: Install Docker and Docker Compose via your package manager
 
-### Run the Application
+### Initial Setup
 
-1. **Clone or navigate to the project directory**
+1. **Clone or download the project**
 
 ```bash
+# If you have git
+git clone <repository-url>
+cd HouseHunter
+
+# Or simply navigate to your project folder
 cd HouseHunter
 ```
 
-2. **Start the application**
+2. **Verify Docker is running**
+
+```bash
+docker --version
+docker compose version
+```
+
+You should see version numbers. If not, start Docker Desktop first.
+
+3. **Build and start the application**
 
 ```bash
 docker compose up --build
 ```
 
-3. **Open your browser**
+This will:
+- Build the Python/FastAPI container
+- Install all dependencies
+- Start the web server on port 7777
+
+4. **Open your browser**
 
 Navigate to: **http://localhost:7777**
 
-4. **Start rating houses!**
+5. **Start rating houses!**
+
+Try the "Load Example Houses" button to see sample data.
+
+---
+
+## 🔧 Running the Application
+
+### Standard Start (after first build)
+
+```bash
+docker compose up
+```
+
+### Start in Background (Detached Mode)
+
+```bash
+docker compose up -d
+```
+
+### Stop the Application
+
+```bash
+# Stop gracefully (Ctrl+C if running in foreground)
+# Or use:
+docker compose down
+```
+
+### View Logs
+
+```bash
+docker compose logs -f app
+```
+
+---
+
+## 🐛 Troubleshooting Guide
+
+### Problem: "Port 7777 is already in use"
+
+**Solution 1: Stop other services using the port**
+```bash
+# Windows (PowerShell as Admin)
+netstat -ano | findstr :7777
+# Note the PID and kill it
+taskkill /PID <PID> /F
+
+# Mac/Linux
+lsof -ti:7777 | xargs kill -9
+```
+
+**Solution 2: Change the port**
+Edit `docker-compose.yml`:
+```yaml
+ports:
+  - "8080:8000"  # Change 7777 to 8080 (or any free port)
+```
+
+### Problem: "Docker daemon is not running"
+
+**Solution:**
+- **Windows/Mac**: Open Docker Desktop application
+- **Linux**: Start Docker service
+  ```bash
+  sudo systemctl start docker
+  ```
+
+### Problem: "Container keeps restarting" or crashes on startup
+
+**Solution:**
+```bash
+# Check logs for errors
+docker compose logs app
+
+# Common fixes:
+# 1. Remove old containers and rebuild
+docker compose down
+docker compose up --build
+
+# 2. Remove all related containers/volumes
+docker compose down -v
+docker compose up --build
+
+# 3. Check if requirements.txt is causing issues
+docker compose build --no-cache
+```
+
+### Problem: "Cannot connect to localhost:7777"
+
+**Solutions:**
+1. Verify container is running:
+   ```bash
+   docker compose ps
+   ```
+   Should show `app` with status `Up`
+
+2. Check if app started successfully:
+   ```bash
+   docker compose logs app
+   ```
+   Look for: `Uvicorn running on http://0.0.0.0:8000`
+
+3. Try accessing via 127.0.0.1 instead:
+   ```
+   http://127.0.0.1:7777
+   ```
+
+4. On Windows, check if Windows Firewall is blocking the port
+
+### Problem: "Module not found" or Python import errors
+
+**Solution:**
+```bash
+# Rebuild container from scratch
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+### Problem: Changes to code not reflected
+
+**Solution:**
+```bash
+# Rebuild the container
+docker compose up --build
+
+# Or force a complete rebuild
+docker compose build --no-cache
+docker compose up
+```
+
+### Problem: Browser localStorage not persisting
+
+**Solution:**
+- Check browser settings - localStorage might be disabled
+- Try a different browser (Chrome, Firefox, Edge)
+- Check if you're in Private/Incognito mode (localStorage is cleared on close)
+- Clear browser cache and reload
+
+### Problem: "Permission denied" errors (Linux)
+
+**Solution:**
+```bash
+# Run with sudo
+sudo docker compose up --build
+
+# Or add your user to docker group
+sudo usermod -aG docker $USER
+# Log out and back in for changes to take effect
+```
+
+### Problem: Container builds but website shows blank page
+
+**Solution:**
+1. Check browser console (F12) for JavaScript errors
+2. Hard refresh the page (Ctrl+Shift+R or Cmd+Shift+R)
+3. Clear browser cache
+4. Check if `templates/index.html` exists in the container:
+   ```bash
+   docker compose exec app ls -la /app/templates/
+   ```
+
+### Complete Reset (Nuclear Option)
+
+If nothing else works:
+```bash
+# Stop and remove everything
+docker compose down -v
+
+# Remove all HouseHunter images
+docker rmi househunter-app
+
+# Clear Docker cache
+docker system prune -a
+
+# Rebuild from scratch
+docker compose up --build
+```
 
 ---
 
@@ -83,65 +300,135 @@ HouseHunter/
 
 ---
 
-## 📝 Usage
+## 📝 Usage Guide
 
 ### Adding a House
 
-1. Fill in the address (required)
-2. Add any notes (optional)
-3. Select features:
-   - Garage options
-   - Number of bathrooms
-   - Number of bedrooms
-   - Other amenities (backyard, curb appeal, appliances)
-4. Click "Add House"
+1. **Fill in basic information:**
+   - Address (required)
+   - Notes (optional - add thoughts, concerns, realtor info, etc.)
 
-The score is calculated automatically!
+2. **Enter property details:**
+   - Garage capacity (number of cars)
+   - Bathrooms (number)
+   - Bedrooms (number)
+   - Square footage
+   - Lot size in acres
+
+3. **Select features:**
+   - Nice backyard
+   - Curb appeal
+   - Deck
+   - Patio potential
+   - Pool
+   - Near recreation areas
+   - Walking distance to shopping
+
+4. **Choose from dropdowns:**
+   - Basement (None, Unfinished, Finished)
+   - Privacy level (Very Private, Private, Normal, Not Private)
+
+5. **Select appliances and their condition:**
+   - Check each appliance present (Dishwasher, Range, Oven, Fridge, Washer, Dryer, Microwave)
+   - Select Old (+1) or Modern (+2) for each
+
+6. **HOA Information:**
+   - Check if has HOA
+   - Enter monthly HOA fee if applicable
+
+7. **Click "Add House"**
+
+The score is calculated automatically and the house appears in the list!
+
+### Editing a House
+
+1. Click the **"Edit"** button (green) on any house card
+2. The form will populate with all existing data
+3. Make your changes
+4. Click **"Update House"** to save
+5. Click **"Cancel Edit"** to abort changes
 
 ### Viewing Houses
 
-- All houses are displayed sorted by score (highest first)
+- All houses are displayed **sorted by score (highest first)**
 - Each card shows:
   - Address and notes
-  - Total score
-  - Breakdown of points by feature
-  - Actions (View Details, Delete)
+  - Total score (green for positive, red for negative)
+  - Detailed breakdown of points by feature
+  - Action buttons (View Details, Edit, Delete)
 
 ### Example Data
 
-Click **"Load Example Houses"** to populate the app with 3 sample houses.
+Click **"Load Example Houses"** to populate the app with 3 diverse sample houses showing different scoring scenarios.
 
 ### Clearing Data
 
-Click **"Clear All Houses"** to remove all houses and start fresh.
+Click **"Clear All Houses"** to remove all houses from both server memory and browser storage.
+
+### Data Persistence
+
+- **Browser Storage**: Houses are automatically saved to your browser's localStorage
+- **Session Sync**: When you open the app, houses are loaded from localStorage to the server
+- **Same Browser**: Your houses persist even after closing the browser
+- **Different Browser/Device**: Houses are browser-specific (not synced across devices)
 
 ---
 
-## 🐳 Docker Commands
+## 🐳 Docker Commands Reference
 
-### Start the app
+### Basic Commands
+
 ```bash
+# Start the app (builds if needed)
 docker compose up
-```
 
-### Start with rebuild
-```bash
+# Start with forced rebuild
 docker compose up --build
-```
 
-### Run in background
-```bash
+# Run in background (detached mode)
 docker compose up -d
-```
 
-### Stop the app
-```bash
+# Stop the app
 docker compose down
+
+# Stop and remove volumes
+docker compose down -v
 ```
 
-### View logs
+### Logs and Debugging
+
 ```bash
+# View logs (follow mode)
 docker compose logs -f
+
+# View logs for specific service
+docker compose logs -f app
+
+# View last 50 lines
+docker compose logs --tail=50 app
+
+# Check container status
+docker compose ps
+
+# Execute command in running container
+docker compose exec app bash
+```
+
+### Maintenance
+
+```bash
+# Rebuild without cache
+docker compose build --no-cache
+
+# Restart services
+docker compose restart
+
+# Pull latest images (if using external images)
+docker compose pull
+
+# Remove unused Docker resources
+docker system prune
+docker system prune -a  # Remove all unused images
 ```
 
 ---
@@ -153,14 +440,19 @@ docker compose logs -f
 
 ### House Management
 - `POST /add_house` - Add a new house
-- `GET /houses` - Get all houses (sorted by score)
+- `GET /houses` - Get all houses (sorted by score, descending)
 - `GET /house/{id}` - Get a specific house
+- `PUT /house/{id}` - Update an existing house
 - `DELETE /house/{id}` - Delete a house
 - `GET /score/{id}` - Get detailed scoring breakdown
 
 ### Utility
-- `POST /seed_data` - Load example houses
+- `POST /seed_data` - Load 3 example houses
 - `DELETE /clear_all` - Clear all houses
+- `POST /sync_houses` - Sync houses from browser localStorage (called automatically on page load)
+
+### API Documentation
+Visit `http://localhost:7777/docs` for interactive API documentation (Swagger UI)
 
 ---
 
@@ -214,28 +506,54 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
-## 💡 Tips
+## 💡 Tips & Best Practices
 
-1. **Session-based storage**: Data is stored in memory and resets when the app restarts. This is intentional for privacy and simplicity.
+1. **Data Persistence**: 
+   - Data is saved in your browser's localStorage automatically
+   - Server memory is synced from localStorage on each page load
+   - Use the same browser to maintain your house list
+   - Export important data by taking screenshots or using browser dev tools
 
-2. **Garage logic**: Selecting "Two-car garage" automatically checks "Has garage"
+2. **Score Interpretation**:
+   - **30+ points**: Excellent house with many desirable features
+   - **20-29 points**: Very good house
+   - **10-19 points**: Decent house with some good features
+   - **0-9 points**: Basic house or has some negative factors
+   - **Negative score**: Has significant drawbacks (usually high HOA fees or lack of key features)
 
-3. **Score interpretation**:
-   - Positive score (green) = Good house
-   - Negative score (red) = May need compromises
+3. **Using the Scoring System Effectively**:
+   - Don't just look at total score - review the breakdown
+   - Some features may be more important to you than the points suggest
+   - Use notes to capture non-quantifiable factors (school district, commute time, neighborhood feel)
 
-4. **Mobile-friendly**: The interface is responsive and works on phones/tablets
+4. **Appliance Tracking**:
+   - Check each appliance that comes with the house
+   - Modern appliances score higher but old appliances still add value
+   - This helps estimate move-in costs if appliances need replacement
+
+5. **Privacy Levels Explained**:
+   - **Very Private**: Large lot, no visible neighbors, wooded/fenced
+   - **Private**: Some distance from neighbors, decent privacy
+   - **Normal**: Standard suburban spacing
+   - **Not Private**: Very close neighbors, no privacy
+
+6. **Mobile Usage**: The interface is fully responsive - great for looking up houses on your phone while house hunting!
+
+7. **Editing Houses**: Use the Edit feature to update information as you learn more about a property
 
 ---
 
 ## 🤝 Contributing
 
 Feel free to fork, modify, and enhance! Some ideas:
-- Add persistent database (PostgreSQL, MongoDB)
-- Add user authentication
-- Export houses to PDF/CSV
-- Add photos for each house
-- Custom scoring weights
+- Add persistent database (PostgreSQL, MongoDB) for true multi-device sync
+- Add user authentication and accounts
+- Export houses to PDF/CSV/Excel
+- Add photo uploads for each house
+- Custom scoring weights (let users configure point values)
+- Map integration to show house locations
+- Comparison view (side-by-side house comparison)
+- Price tracking and mortgage calculator integration
 
 ---
 
@@ -245,13 +563,46 @@ This project is open source and available for personal or educational use.
 
 ---
 
-## 🙋 Support
+## 🆘 Getting Help
 
-If you encounter any issues:
-1. Check that Docker is running
-2. Ensure port 7777 is not in use
-3. Try `docker compose down` and `docker compose up --build`
+If you encounter issues not covered in the troubleshooting guide:
+
+1. **Check Docker is running**: Open Docker Desktop
+2. **Verify port availability**: Make sure port 7777 is free
+3. **Check logs**: Run `docker compose logs app` for error messages
+4. **Try clean rebuild**: `docker compose down -v && docker compose up --build`
+5. **Check browser console**: Press F12 and look for JavaScript errors
+6. **Test API directly**: Visit `http://localhost:7777/docs` to test API endpoints
+
+### Common Success Checklist
+- ✅ Docker Desktop is running
+- ✅ Port 7777 is available (or you changed it in docker-compose.yml)
+- ✅ All files present in project directory
+- ✅ `docker compose up --build` completed without errors
+- ✅ Browser can access `http://localhost:7777`
+
+---
+
+## 🔍 Architecture Overview
+
+**Frontend:**
+- Single-page application (SPA) with vanilla JavaScript
+- Tailwind CSS for styling
+- Browser localStorage for data persistence
+
+**Backend:**
+- FastAPI framework (Python)
+- Pydantic for data validation
+- In-memory dictionary for session storage
+- Automatic data sync from localStorage on page load
+
+**Deployment:**
+- Dockerized application
+- Uvicorn ASGI server
+- Port mapping: 7777 (host) → 8000 (container)
 
 ---
 
 **Happy House Hunting! 🏡**
+
+*Made with ❤️ for smart homebuyers*
