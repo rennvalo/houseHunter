@@ -11,6 +11,8 @@ class HouseFeatures(BaseModel):
     nice_backyard: bool = False
     curb_appeal: bool = False
     modern_appliances: bool = False
+    has_hoa: bool = False
+    hoa_monthly_fee: int = 0  # Monthly HOA fee in dollars
 
 
 class House(BaseModel):
@@ -114,5 +116,16 @@ def calculate_score(features: HouseFeatures) -> tuple[int, dict]:
         total += appliances_score
     else:
         breakdown['appliances'] = '+0 (No modern appliances)'
+    
+    # HOA scoring
+    if features.has_hoa:
+        hoa_score = -1  # Base penalty for having HOA
+        # Additional penalty: -1 for every $100 in monthly fees
+        fee_penalty = -(features.hoa_monthly_fee // 100)
+        hoa_score += fee_penalty
+        total += hoa_score
+        breakdown['hoa'] = f'{hoa_score} (HOA: ${features.hoa_monthly_fee}/month)'
+    else:
+        breakdown['hoa'] = '+0 (No HOA)'
     
     return total, breakdown

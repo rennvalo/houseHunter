@@ -109,7 +109,9 @@ async def seed_data():
                 "bedrooms": 4,
                 "nice_backyard": True,
                 "curb_appeal": True,
-                "modern_appliances": True
+                "modern_appliances": True,
+                "has_hoa": False,
+                "hoa_monthly_fee": 0
             },
             "notes": "Beautiful family home with everything we want!"
         },
@@ -122,9 +124,11 @@ async def seed_data():
                 "bedrooms": 3,
                 "nice_backyard": False,
                 "curb_appeal": True,
-                "modern_appliances": False
+                "modern_appliances": False,
+                "has_hoa": True,
+                "hoa_monthly_fee": 30
             },
-            "notes": "Decent starter home, needs some upgrades"
+            "notes": "Decent starter home, needs some upgrades. Low HOA fee."
         },
         {
             "address": "789 Pine Road, Lakeside",
@@ -135,9 +139,11 @@ async def seed_data():
                 "bedrooms": 2,
                 "nice_backyard": True,
                 "curb_appeal": False,
-                "modern_appliances": True
+                "modern_appliances": True,
+                "has_hoa": True,
+                "hoa_monthly_fee": 400
             },
-            "notes": "Cozy but no garage - street parking only"
+            "notes": "Cozy but no garage and HIGH HOA fees - street parking only"
         }
     ]
     
