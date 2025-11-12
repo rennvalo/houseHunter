@@ -29,9 +29,75 @@
     <div class="max-w-7xl mx-auto">
         <!-- Header -->
         <header class="text-center mb-8">
-            <h1 class="text-5xl font-bold text-white drop-shadow-lg mb-2">🏠 HouseHunter</h1>
-            <p class="text-xl text-white drop-shadow-md">Make Smart House Decisions with Data-Driven Scoring</p>
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1"></div>
+                <div class="flex-1 text-center">
+                    <h1 class="text-5xl font-bold text-white drop-shadow-lg mb-2">🏠 HouseHunter</h1>
+                    <p class="text-xl text-white drop-shadow-md">Make Smart House Decisions with Data-Driven Scoring</p>
+                </div>
+                <div class="flex-1 flex justify-end">
+                    <div id="userStatus" class="glass-effect rounded-lg px-4 py-2 text-sm">
+                        <span id="userInfo" class="text-gray-700">Loading...</span>
+                    </div>
+                </div>
+            </div>
         </header>
+
+        <!-- Auth Modal -->
+        <div id="authModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div class="glass-effect rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Account Login</h2>
+                    <button onclick="closeAuthModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="flex border-b border-gray-300">
+                        <button id="loginTab" onclick="switchAuthTab('login')" class="flex-1 py-2 font-medium text-blue-600 border-b-2 border-blue-600">Login</button>
+                        <button id="registerTab" onclick="switchAuthTab('register')" class="flex-1 py-2 font-medium text-gray-500">Register</button>
+                    </div>
+                </div>
+
+                <!-- Login Form -->
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="loginEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="loginPassword" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-medium">
+                        Login
+                    </button>
+                </form>
+
+                <!-- Register Form -->
+                <form id="registerForm" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="registerEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="registerPassword" required minlength="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                        <input type="password" id="registerPasswordConfirm" required minlength="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition font-medium">
+                        Create Account
+                    </button>
+                </form>
+
+                <div class="mt-4 pt-4 border-t border-gray-300 text-sm text-gray-600">
+                    <p><strong>Optional:</strong> Create an account to sync your houses across devices.</p>
+                    <p class="mt-2">Without an account, your houses are stored locally on this browser.</p>
+                </div>
+            </div>
+        </div>
 
         <!-- Main Content -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -301,6 +367,42 @@
     </div>
 
     <script>
+        // User identification - UUID stored in localStorage
+        const USER_ID_KEY = 'househunter_user_id';
+        const USER_AUTH_KEY = 'househunter_auth_user';
+        
+        // Get or create user ID
+        function getUserId() {
+            // Check if logged in with account
+            const authUser = localStorage.getItem(USER_AUTH_KEY);
+            if (authUser) {
+                const user = JSON.parse(authUser);
+                return `user_${user.id}`; // Use account ID
+            }
+            
+            // Otherwise use anonymous UUID
+            let userId = localStorage.getItem(USER_ID_KEY);
+            if (!userId) {
+                // Generate new UUID
+                userId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+                localStorage.setItem(USER_ID_KEY, userId);
+                console.log('Generated new user ID:', userId);
+            }
+            return userId;
+        }
+        
+        // Helper function to add auth headers to fetch requests
+        function getHeaders(additionalHeaders = {}) {
+            return {
+                'X-User-ID': getUserId(),
+                ...additionalHeaders
+            };
+        }
+        
         // LocalStorage key for houses
         const STORAGE_KEY = 'househunter_houses';
 
@@ -334,9 +436,9 @@
                 try {
                     const response = await fetch('/sync_houses', {
                         method: 'POST',
-                        headers: {
+                        headers: getHeaders({
                             'Content-Type': 'application/json',
-                        },
+                        }),
                         body: JSON.stringify(localHouses)
                     });
 
@@ -396,18 +498,18 @@
                     // Update existing house
                     response = await fetch(`/house/${editHouseId}`, {
                         method: 'PUT',
-                        headers: {
+                        headers: getHeaders({
                             'Content-Type': 'application/json',
-                        },
+                        }),
                         body: JSON.stringify(houseData)
                     });
                 } else {
                     // Add new house
                     response = await fetch('/add_house', {
                         method: 'POST',
-                        headers: {
+                        headers: getHeaders({
                             'Content-Type': 'application/json',
-                        },
+                        }),
                         body: JSON.stringify(houseData)
                     });
                 }
@@ -427,7 +529,9 @@
         // Load all houses
         async function loadHouses() {
             try {
-                const response = await fetch('/houses');
+                const response = await fetch('/houses', {
+                    headers: getHeaders()
+                });
                 const houses = await response.json();
                 
                 // Save to localStorage whenever we load houses
@@ -495,7 +599,8 @@
             
             try {
                 const response = await fetch(`/house/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getHeaders()
                 });
                 
                 if (response.ok) {
@@ -509,7 +614,9 @@
         // Edit house
         async function editHouse(id) {
             try {
-                const response = await fetch(`/house/${id}`);
+                const response = await fetch(`/house/${id}`, {
+                    headers: getHeaders()
+                });
                 const house = await response.json();
                 
                 // Populate form with house data
@@ -587,7 +694,9 @@
         // View details
         async function viewDetails(id) {
             try {
-                const response = await fetch(`/score/${id}`);
+                const response = await fetch(`/score/${id}`, {
+                    headers: getHeaders()
+                });
                 const data = await response.json();
                 
                 let details = `📍 ${data.address}\n\n`;
@@ -607,7 +716,8 @@
         async function loadSeedData() {
             try {
                 const response = await fetch('/seed_data', {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: getHeaders()
                 });
                 
                 if (response.ok) {
@@ -624,7 +734,8 @@
             
             try {
                 const response = await fetch('/clear_all', {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getHeaders()
                 });
                 
                 if (response.ok) {
@@ -679,10 +790,151 @@
             });
         });
 
+        // Auth Modal Functions
+        function showAuthModal() {
+            document.getElementById('authModal').classList.remove('hidden');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+        }
+
+        function switchAuthTab(tab) {
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+
+            if (tab === 'login') {
+                loginTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                loginTab.classList.remove('text-gray-500');
+                registerTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                registerTab.classList.add('text-gray-500');
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+            } else {
+                registerTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                registerTab.classList.remove('text-gray-500');
+                loginTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                loginTab.classList.add('text-gray-500');
+                registerForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+            }
+        }
+
+        function updateUserStatus() {
+            const authUser = localStorage.getItem(USER_AUTH_KEY);
+            const userInfo = document.getElementById('userInfo');
+            const userStatus = document.getElementById('userStatus');
+
+            if (authUser) {
+                const user = JSON.parse(authUser);
+                userInfo.innerHTML = `
+                    <span class="font-medium">${user.email}</span>
+                    <button onclick="logout()" class="ml-2 text-red-600 hover:text-red-800 font-medium">Logout</button>
+                `;
+            } else {
+                const userId = getUserId();
+                userInfo.innerHTML = `
+                    <span>Anonymous User</span>
+                    <button onclick="showAuthModal()" class="ml-2 text-blue-600 hover:text-blue-800 font-medium">Login</button>
+                `;
+            }
+        }
+
+        async function logout() {
+            if (confirm('Are you sure you want to logout? Your houses will remain saved.')) {
+                localStorage.removeItem(USER_AUTH_KEY);
+                updateUserStatus();
+                // Reload houses for anonymous user
+                loadHouses();
+            }
+        }
+
+        // Login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    const user = await response.json();
+                    localStorage.setItem(USER_AUTH_KEY, JSON.stringify(user));
+                    updateUserStatus();
+                    closeAuthModal();
+                    
+                    // Reload houses for logged-in user
+                    loadHouses();
+                    alert('Successfully logged in!');
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Login failed');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login failed. Please try again.');
+            }
+        });
+
+        // Register form submission
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+
+            if (password !== passwordConfirm) {
+                alert('Passwords do not match');
+                return;
+            }
+
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    const user = await response.json();
+                    localStorage.setItem(USER_AUTH_KEY, JSON.stringify(user));
+                    updateUserStatus();
+                    closeAuthModal();
+                    
+                    // Reload houses for new user
+                    loadHouses();
+                    alert('Account created successfully!');
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Registration failed');
+                }
+            } catch (error) {
+                console.error('Register error:', error);
+                alert('Registration failed. Please try again.');
+            }
+        });
+
         // Load houses on page load
         window.addEventListener('DOMContentLoaded', async () => {
+            // Update user status display
+            updateUserStatus();
+            
             // First, sync any saved houses from localStorage to server
             await syncFromLocalStorage();
+            
             // Then load and display all houses
             loadHouses();
         });

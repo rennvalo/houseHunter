@@ -1,14 +1,37 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from typing import List
+from typing import List, Optional
 import json
 from pathlib import Path
+from pydantic import BaseModel, EmailStr
 
 from models import House, HouseResponse, HouseFeatures, calculate_score
 import db
 
 app = FastAPI(title="HouseHunter", description="House Rating & Decision Tool")
+
+
+# Helper function to get user_id from header or generate anonymous ID
+def get_user_id(x_user_id: Optional[str] = Header(None)) -> str:
+    """Extract user ID from header, default to 'anonymous' if not provided"""
+    return x_user_id if x_user_id else "anonymous"
+
+
+# User authentication models
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
 
 # Mount static files
 static_path = Path(__file__).parent / "static"
@@ -25,14 +48,36 @@ async def read_root():
     return HTMLResponse(content="<h1>HouseHunter - Template not found</h1>", status_code=404)
 
 
+@app.post("/register", response_model=UserResponse)
+async def register(user: UserRegister):
+    """Register a new user account"""
+    result = db.create_user(user.email, user.password)
+    if not result:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    return UserResponse(**result)
+
+
+@app.post("/login", response_model=UserResponse)
+async def login(user: UserLogin):
+    """Login with email and password"""
+    result = db.verify_user(user.email, user.password)
+    if not result:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return UserResponse(**result)
+
+
 @app.post("/add_house", response_model=HouseResponse)
-async def add_house(house: House):
+async def add_house(house: House, user_id: str = Header(None, alias="X-User-ID")):
     """Add a new house with features and calculate its score"""
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
     # Calculate score
     score, breakdown = calculate_score(house.features)
     
     # Store house in database
     house_data = db.add_house(
+        user_id=user_id,
         address=house.address,
         features=house.features.dict(),
         notes=house.notes,
@@ -44,40 +89,53 @@ async def add_house(house: House):
 
 
 @app.get("/houses", response_model=List[HouseResponse])
-async def get_houses():
-    """Get all houses sorted by score (highest first)"""
-    houses_list = db.get_all_houses(order_by_score=True)
+async def get_houses(user_id: str = Header(None, alias="X-User-ID")):
+    """Get all houses for the current user sorted by score (highest first)"""
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
+    houses_list = db.get_all_houses(user_id=user_id, order_by_score=True)
     return [HouseResponse(**house) for house in houses_list]
 
 
 @app.get("/house/{house_id}", response_model=HouseResponse)
-async def get_house(house_id: int):
-    """Get a specific house by ID"""
-    house = db.get_house_by_id(house_id)
+async def get_house(house_id: int, user_id: str = Header(None, alias="X-User-ID")):
+    """Get a specific house by ID (must belong to user)"""
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
+    house = db.get_house_by_id(user_id=user_id, house_id=house_id)
     if not house:
         raise HTTPException(status_code=404, detail="House not found")
     return HouseResponse(**house)
 
 
 @app.delete("/house/{house_id}")
-async def delete_house(house_id: int):
-    """Delete a house by ID"""
-    house = db.get_house_by_id(house_id)
+async def delete_house(house_id: int, user_id: str = Header(None, alias="X-User-ID")):
+    """Delete a house by ID (must belong to user)"""
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
+    house = db.get_house_by_id(user_id=user_id, house_id=house_id)
     if not house:
         raise HTTPException(status_code=404, detail="House not found")
     
-    db.delete_house(house_id)
+    db.delete_house(user_id=user_id, house_id=house_id)
     return {"message": "House deleted successfully", "address": house["address"]}
 
 
 @app.put("/house/{house_id}", response_model=HouseResponse)
-async def update_house(house_id: int, house: House):
-    """Update an existing house by ID"""
+async def update_house(house_id: int, house: House, user_id: str = Header(None, alias="X-User-ID")):
+    """Update an existing house by ID (must belong to user)"""
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
     # Calculate new score
     score, breakdown = calculate_score(house.features)
     
     # Update house in database
     house_data = db.update_house(
+        user_id=user_id,
         house_id=house_id,
         address=house.address,
         features=house.features.dict(),
@@ -93,9 +151,12 @@ async def update_house(house_id: int, house: House):
 
 
 @app.get("/score/{house_id}")
-async def get_score(house_id: int):
-    """Get detailed scoring breakdown for a house"""
-    house = db.get_house_by_id(house_id)
+async def get_score(house_id: int, user_id: str = Header(None, alias="X-User-ID")):
+    """Get detailed scoring breakdown for a house (must belong to user)"""
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
+    house = db.get_house_by_id(user_id=user_id, house_id=house_id)
     if not house:
         raise HTTPException(status_code=404, detail="House not found")
     
@@ -108,8 +169,11 @@ async def get_score(house_id: int):
 
 
 @app.post("/seed_data")
-async def seed_data():
+async def seed_data(user_id: str = Header(None, alias="X-User-ID")):
     """Add example houses for testing"""
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
     examples = [
         {
             "address": "123 Oak Street, Springfield",
@@ -202,6 +266,7 @@ async def seed_data():
         score, breakdown = calculate_score(house.features)
         
         house_data = db.add_house(
+            user_id=user_id,
             address=house.address,
             features=house.features.dict(),
             notes=house.notes,
@@ -215,19 +280,25 @@ async def seed_data():
 
 
 @app.delete("/clear_all")
-async def clear_all():
-    """Clear all houses (reset session)"""
-    count = db.clear_all_houses()
+async def clear_all(user_id: str = Header(None, alias="X-User-ID")):
+    """Clear all houses for current user"""
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
+    count = db.clear_all_houses(user_id=user_id)
     return {"message": f"Cleared {count} houses"}
 
 
 @app.post("/sync_houses")
-async def sync_houses(houses: List[dict]):
+async def sync_houses(houses: List[dict], user_id: str = Header(None, alias="X-User-ID")):
     """
-    Sync houses from browser local storage to server database.
+    Sync houses from browser local storage to server database for current user.
     This restores the session when the user returns or if database is empty.
     """
-    count = db.sync_houses_from_browser(houses)
+    # Use provided user_id or default to 'anonymous'
+    user_id = user_id if user_id else "anonymous"
+    
+    count = db.sync_houses_from_browser(user_id=user_id, houses=houses)
     
     return {
         "message": f"Synced {count} houses from browser storage to database",
