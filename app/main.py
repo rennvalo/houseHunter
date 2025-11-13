@@ -11,6 +11,13 @@ import db
 
 app = FastAPI(title="HouseHunter", description="House Rating & Decision Tool")
 
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on application startup"""
+    db.init_db()
+    print("Database initialized successfully")
+
 
 # Helper function to get user_id from header or generate anonymous ID
 def get_user_id(x_user_id: Optional[str] = Header(None)) -> str:
@@ -72,6 +79,10 @@ async def add_house(house: House, user_id: str = Header(None, alias="X-User-ID")
     # Use provided user_id or default to 'anonymous'
     user_id = user_id if user_id else "anonymous"
     
+    # Debug logging
+    photo_preview = house.photo[:50] + "..." if house.photo else "None"
+    print(f"ADD HOUSE - Photo received: {photo_preview}")
+    
     # Calculate score
     score, breakdown = calculate_score(house.features)
     
@@ -86,6 +97,8 @@ async def add_house(house: House, user_id: str = Header(None, alias="X-User-ID")
         score_breakdown=breakdown
     )
     
+    print(f"ADD HOUSE - Photo in response: {house_data.get('photo', 'MISSING')[:50] if house_data.get('photo') else 'None'}")
+    
     return HouseResponse(**house_data)
 
 
@@ -96,6 +109,15 @@ async def get_houses(user_id: str = Header(None, alias="X-User-ID")):
     user_id = user_id if user_id else "anonymous"
     
     houses_list = db.get_all_houses(user_id=user_id, order_by_score=True)
+    
+    # Debug: Check if photos are in the response
+    for house in houses_list:
+        photo_info = house.get('photo', 'MISSING')
+        if photo_info and photo_info != 'MISSING':
+            print(f"GET HOUSES - House {house.get('id')}: Has photo (length: {len(photo_info)})")
+        else:
+            print(f"GET HOUSES - House {house.get('id')}: NO PHOTO")
+    
     return [HouseResponse(**house) for house in houses_list]
 
 
@@ -131,6 +153,10 @@ async def update_house(house_id: int, house: House, user_id: str = Header(None, 
     # Use provided user_id or default to 'anonymous'
     user_id = user_id if user_id else "anonymous"
     
+    # Debug logging
+    photo_preview = house.photo[:50] + "..." if house.photo else "None"
+    print(f"UPDATE HOUSE {house_id} - Photo received: {photo_preview}")
+    
     # Calculate new score
     score, breakdown = calculate_score(house.features)
     
@@ -145,6 +171,8 @@ async def update_house(house_id: int, house: House, user_id: str = Header(None, 
         score=score,
         score_breakdown=breakdown
     )
+    
+    print(f"UPDATE HOUSE {house_id} - Photo in response: {house_data.get('photo', 'MISSING')[:50] if house_data and house_data.get('photo') else 'None'}")
     
     if not house_data:
         raise HTTPException(status_code=404, detail="House not found")

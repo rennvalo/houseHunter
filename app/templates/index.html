@@ -400,6 +400,9 @@
         const USER_ID_KEY = 'househunter_user_id';
         const USER_AUTH_KEY = 'househunter_auth_user';
         
+        // Store current photo data globally to prevent loss during form operations
+        let currentPhotoData = null;
+        
         // Get or create user ID
         function getUserId() {
             // Check if logged in with account
@@ -458,11 +461,26 @@
 
         // Sync houses from localStorage to server on startup
         async function syncFromLocalStorage() {
-            const localHouses = loadFromLocalStorage();
-            
-            if (localHouses.length > 0) {
-                console.log('Syncing', localHouses.length, 'houses from localStorage to server...');
-                try {
+            // First check if server already has data
+            try {
+                const serverResponse = await fetch('/houses', {
+                    headers: getHeaders()
+                });
+                const serverHouses = await serverResponse.json();
+                
+                if (serverHouses.length > 0) {
+                    // Server has data - it's the source of truth
+                    console.log('Server has', serverHouses.length, 'houses. Skipping localStorage sync.');
+                    // Clear localStorage to prevent future sync attempts
+                    localStorage.removeItem(STORAGE_KEY);
+                    return;
+                }
+                
+                // Only sync from localStorage if server is empty
+                const localHouses = loadFromLocalStorage();
+                
+                if (localHouses.length > 0) {
+                    console.log('Server is empty. Syncing', localHouses.length, 'houses from localStorage...');
                     const response = await fetch('/sync_houses', {
                         method: 'POST',
                         headers: getHeaders({
@@ -474,10 +492,12 @@
                     if (response.ok) {
                         const result = await response.json();
                         console.log('Sync successful:', result.message);
+                        // Clear localStorage after successful sync
+                        localStorage.removeItem(STORAGE_KEY);
                     }
-                } catch (error) {
-                    console.error('Error syncing from localStorage:', error);
                 }
+            } catch (error) {
+                console.error('Error syncing from localStorage:', error);
             }
         }
 
@@ -498,16 +518,18 @@
             // Handle photo upload
             let photoData = null;
             const photoInput = document.getElementById('photo');
+            
             if (photoInput.files && photoInput.files[0]) {
+                // New file selected
                 const reader = new FileReader();
                 photoData = await new Promise((resolve) => {
                     reader.onload = (e) => resolve(e.target.result);
                     reader.readAsDataURL(photoInput.files[0]);
                 });
-            } else if (document.getElementById('photoPreviewImg').src && 
-                       !document.getElementById('photoPreview').classList.contains('hidden')) {
-                // Keep existing photo if in edit mode
-                photoData = document.getElementById('photoPreviewImg').src;
+                currentPhotoData = photoData; // Store globally
+            } else if (currentPhotoData) {
+                // Keep existing photo if in edit mode or if already loaded
+                photoData = currentPhotoData;
             }
             
             const houseData = {
@@ -536,6 +558,9 @@
                     hoa_monthly_fee: parseInt(document.getElementById('hoa_monthly_fee').value) || 0
                 }
             };
+            
+            // Debug: Log if photo is included
+            console.log('Submitting house with photo:', photoData ? 'Yes (' + photoData.substring(0, 50) + '...)' : 'No');
 
             try {
                 const editHouseId = document.getElementById('editHouseId').value;
@@ -680,6 +705,7 @@
                 if (house.photo) {
                     document.getElementById('photoPreviewImg').src = house.photo;
                     document.getElementById('photoPreview').classList.remove('hidden');
+                    currentPhotoData = house.photo; // Store in global variable
                 } else {
                     clearPhoto();
                 }
@@ -837,6 +863,7 @@
             document.getElementById('photo').value = '';
             document.getElementById('photoPreview').classList.add('hidden');
             document.getElementById('photoPreviewImg').src = '';
+            currentPhotoData = null; // Clear global photo data
         }
 
         // Photo preview on file selection
@@ -845,8 +872,10 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    document.getElementById('photoPreviewImg').src = e.target.result;
+                    const photoDataUrl = e.target.result;
+                    document.getElementById('photoPreviewImg').src = photoDataUrl;
                     document.getElementById('photoPreview').classList.remove('hidden');
+                    currentPhotoData = photoDataUrl; // Store in global variable
                 };
                 reader.readAsDataURL(file);
             }
