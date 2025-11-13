@@ -30,6 +30,7 @@ class House(BaseModel):
     address: str
     features: HouseFeatures
     notes: Optional[str] = None
+    photo: Optional[str] = None  # Base64 encoded image data
 
 
 class HouseResponse(BaseModel):
@@ -38,6 +39,7 @@ class HouseResponse(BaseModel):
     address: str
     features: HouseFeatures
     notes: Optional[str]
+    photo: Optional[str]
     score: int
     score_breakdown: dict
 

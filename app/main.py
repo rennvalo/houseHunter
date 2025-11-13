@@ -81,6 +81,7 @@ async def add_house(house: House, user_id: str = Header(None, alias="X-User-ID")
         address=house.address,
         features=house.features.dict(),
         notes=house.notes,
+        photo=house.photo,
         score=score,
         score_breakdown=breakdown
     )
@@ -140,6 +141,7 @@ async def update_house(house_id: int, house: House, user_id: str = Header(None, 
         address=house.address,
         features=house.features.dict(),
         notes=house.notes,
+        photo=house.photo,
         score=score,
         score_breakdown=breakdown
     )

@@ -58,6 +58,12 @@ def init_db():
                 # Set all existing houses to legacy user
                 cursor.execute("UPDATE houses SET user_id = 'legacy' WHERE user_id IS NULL OR user_id = ''")
                 print("Migration complete: All existing houses assigned to 'legacy' user")
+            
+            if 'photo' not in columns:
+                # Add photo column if it doesn't exist
+                print("Migrating database: Adding photo column to houses table...")
+                cursor.execute("ALTER TABLE houses ADD COLUMN photo TEXT")
+                print("Migration complete: photo column added")
         else:
             # New installation - create houses table with user_id
             cursor.execute("""
@@ -67,6 +73,7 @@ def init_db():
                     address TEXT NOT NULL,
                     features TEXT NOT NULL,
                     notes TEXT,
+                    photo TEXT,
                     score INTEGER NOT NULL,
                     score_breakdown TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -82,18 +89,19 @@ def init_db():
 
 
 def add_house(user_id: str, address: str, features: Dict[str, Any], notes: Optional[str], 
-              score: int, score_breakdown: Dict[str, str]) -> Dict[str, Any]:
+              photo: Optional[str], score: int, score_breakdown: Dict[str, str]) -> Dict[str, Any]:
     """Add a new house to the database"""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO houses (user_id, address, features, notes, score, score_breakdown)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO houses (user_id, address, features, notes, photo, score, score_breakdown)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id,
             address,
             json.dumps(features),
             notes,
+            photo,
             score,
             json.dumps(score_breakdown)
         ))
@@ -139,19 +147,20 @@ def get_house_by_id(user_id: str, house_id: int) -> Optional[Dict[str, Any]]:
 
 
 def update_house(user_id: str, house_id: int, address: str, features: Dict[str, Any], 
-                 notes: Optional[str], score: int, score_breakdown: Dict[str, str]) -> Optional[Dict[str, Any]]:
+                 notes: Optional[str], photo: Optional[str], score: int, score_breakdown: Dict[str, str]) -> Optional[Dict[str, Any]]:
     """Update an existing house (must belong to user)"""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE houses 
-            SET address = ?, features = ?, notes = ?, score = ?, score_breakdown = ?,
+            SET address = ?, features = ?, notes = ?, photo = ?, score = ?, score_breakdown = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND user_id = ?
         """, (
             address,
             json.dumps(features),
             notes,
+            photo,
             score,
             json.dumps(score_breakdown),
             house_id,
@@ -223,6 +232,7 @@ def _row_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
         'address': row['address'],
         'features': json.loads(row['features']),
         'notes': row['notes'],
+        'photo': row['photo'] if 'photo' in row.keys() else None,
         'score': row['score'],
         'score_breakdown': json.loads(row['score_breakdown'])
     }
