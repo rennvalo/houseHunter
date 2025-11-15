@@ -9,6 +9,7 @@ HouseHunter lets you track potential houses, rate them based on dozens of key fe
 ## ✨ Features
 
 - **Add & Edit Houses**: Input address, features, and notes - edit them anytime
+- **🔍 Auto-Fill Property Details**: Automatically populate bedrooms, bathrooms, square feet, lot size, and garage from address using RapidAPI (optional, requires free API key)
 - **Automatic Scoring**: Each house gets a score based on a comprehensive point system
 - **Compare Houses**: View all houses sorted by score (highest first)
 - **Persistent Storage**: Data saved in browser localStorage AND in-memory
@@ -85,7 +86,27 @@ docker compose version
 
 You should see version numbers. If not, start Docker Desktop first.
 
-3. **Build and start the application**
+3. **[Optional] Set up RapidAPI for Auto-Fill**
+
+To enable the auto-fill feature that populates property details from an address:
+
+1. Sign up at [RapidAPI.com](https://rapidapi.com) (free)
+2. Subscribe to the [Realtor API](https://rapidapi.com/apidojo/api/realtor) free plan (500 requests/month)
+3. Copy your API key
+4. Create a `.env` file in the project root:
+   ```bash
+   cp .env.example .env
+   ```
+5. Edit `.env` and add your API key:
+   ```
+   RAPIDAPI_KEY=your_api_key_here
+   ```
+
+**📖 Detailed instructions:** See [RAPIDAPI_SETUP.md](RAPIDAPI_SETUP.md)
+
+**Note:** This step is optional. You can still use the app and enter all details manually without the API.
+
+4. **Build and start the application**
 
 ```bash
 docker compose up --build
@@ -96,11 +117,11 @@ This will:
 - Install all dependencies
 - Start the web server on port 7777
 
-4. **Open your browser**
+5. **Open your browser**
 
 Navigate to: **http://localhost:7777**
 
-5. **Start rating houses!**
+6. **Start rating houses!**
 
 Try the "Load Example Houses" button to see sample data.
 
@@ -302,6 +323,24 @@ HouseHunter/
 
 ## 📝 Usage Guide
 
+### Auto-Filling Property Details (Optional)
+
+If you've set up RapidAPI (see setup instructions above):
+
+1. **Enter an address** in the Address field
+2. **Click the "🔍 Auto-Fill" button**
+3. Wait a moment while the system looks up the property
+4. **Property details auto-populate**:
+   - ✅ Bedrooms
+   - ✅ Bathrooms
+   - ✅ Square feet
+   - ✅ Lot size (acres)
+   - ✅ Garage spaces
+5. **Review and adjust** if needed
+6. **Manually fill** subjective fields (backyard, privacy, appliances, etc.)
+
+**Without RapidAPI:** Simply enter all fields manually as before.
+
 ### Adding a House
 
 1. **Fill in basic information:**
@@ -453,6 +492,12 @@ docker system prune -a  # Remove all unused images
 
 ### API Documentation
 Visit `http://localhost:7777/docs` for interactive API documentation (Swagger UI)
+
+### RapidAPI Integration
+- `GET /lookup_address?address={address}` - Look up property details from Realtor.com via RapidAPI
+  - Returns: bedrooms, bathrooms, square feet, lot size, garage spaces
+  - Requires: RAPIDAPI_KEY environment variable
+  - Free tier: 500 lookups/month
 
 ---
 

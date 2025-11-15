@@ -3,6 +3,8 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from typing import List, Optional
 import json
+import os
+import requests
 from pathlib import Path
 from pydantic import BaseModel, EmailStr
 
@@ -334,6 +336,279 @@ async def sync_houses(houses: List[dict], user_id: str = Header(None, alias="X-U
         "message": f"Synced {count} houses from browser storage to database",
         "count": count
     }
+
+
+@app.get("/lookup_address")
+async def lookup_address(address: str):
+    """
+    Lookup property details from Realtor API via RapidAPI.
+    Returns bedrooms, bathrooms, sqft, lot size, garage, etc.
+    """
+    # Get API key from environment variable
+    api_key = os.getenv("RAPIDAPI_KEY")
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=500, 
+            detail="RapidAPI key not configured. Please set RAPIDAPI_KEY environment variable."
+        )
+    
+    try:
+        # Extract ZIP code from address (last 5 digits or ZIP+4 format)
+        import re
+        zip_match = re.search(r'\b(\d{5})(?:-\d{4})?\b', address)
+        
+        if not zip_match:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not extract ZIP code from address. Please include ZIP code in format: '123 Main St, City, State 12345'"
+            )
+        
+        zip_code = zip_match.group(1)
+        
+        # Extract street address - handle various comma placements
+        # Case 1: "123 Main St, City, State ZIP" - standard format
+        # Case 2: "123 Main St City, State ZIP" - comma only before state
+        # Case 3: "123 Main St City State ZIP" - no commas
+        
+        # Strategy: Remove ZIP, then check if we have state code at end
+        addr_without_zip = re.sub(r'\s*\d{5}(?:-\d{4})?\s*$', '', address).strip()
+        
+        # Look for state code pattern (2 uppercase letters at or near end)
+        # This handles ", CO" or " CO" at the end
+        state_match = re.search(r'[,\s]+(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\s*$', addr_without_zip, re.IGNORECASE)
+        
+        if state_match:
+            # Found state at end - take everything before it
+            addr_without_state = addr_without_zip[:state_match.start()].strip()
+            # Now check if there's a comma before the city name
+            # If so, street is before first comma
+            if ',' in addr_without_state:
+                street_address_raw = addr_without_state.split(',')[0].strip()
+            else:
+                # No comma before city - assume last word is city name
+                words = addr_without_state.split()
+                if len(words) > 3:
+                    street_address_raw = ' '.join(words[:-1])  # Drop last word (city)
+                else:
+                    street_address_raw = addr_without_state
+        else:
+            # No state code found - fall back to comma splitting or word counting
+            if ',' in addr_without_zip:
+                street_address_raw = addr_without_zip.split(',')[0].strip()
+            else:
+                words = addr_without_zip.split()
+                if len(words) > 3:
+                    street_address_raw = ' '.join(words[:-1])
+                else:
+                    street_address_raw = addr_without_zip
+        
+        # Normalize: remove unit/apt numbers, special chars for better matching
+        street_address = re.sub(r'\s*[#,]?\s*(unit|apt|apartment|suite|ste|d)\s*[\d\w-]+', '', street_address_raw, flags=re.IGNORECASE).strip().lower()
+        # Also keep just the street number and name
+        street_number = re.match(r'^(\d+)', street_address)
+        street_number = street_number.group(1) if street_number else ""
+        
+        # Step 1: Search properties by ZIP code
+        search_url = "https://realty-in-us.p.rapidapi.com/properties/v3/list"
+        headers = {
+            "Content-Type": "application/json",
+            "X-RapidAPI-Key": api_key,
+            "X-RapidAPI-Host": "realty-in-us.p.rapidapi.com"
+        }
+        
+        # Search payload - get more results to increase match chance
+        payload = {
+            "limit": 200,
+            "offset": 0,
+            "postal_code": zip_code,
+            "status": ["for_sale", "ready_to_build", "sold", "for_rent", "pending", "off_market"]
+        }
+        
+        search_response = requests.post(search_url, headers=headers, json=payload, timeout=15)
+        
+        if search_response.status_code == 403:
+            raise HTTPException(
+                status_code=403,
+                detail="RapidAPI authentication failed. Please verify you're subscribed to 'Realty in US' API at https://rapidapi.com/apimaker/api/realty-in-us"
+            )
+        
+        search_response.raise_for_status()
+        search_data = search_response.json()
+        
+        # Extract properties from response
+        properties = []
+        if search_data.get("data") and search_data["data"].get("home_search"):
+            properties = search_data["data"]["home_search"].get("results", [])
+        elif search_data.get("data") and search_data["data"].get("results"):
+            properties = search_data["data"]["results"]
+        
+        if not properties:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No properties found in ZIP code {zip_code}. The property might not be listed or use a different ZIP code."
+            )
+        
+        # Step 2: Find matching property by address
+        matched_property = None
+        for prop in properties:
+            prop_address = ""
+            prop_address_raw = ""
+            
+            # Try different address formats
+            if prop.get("location") and prop["location"].get("address"):
+                addr = prop["location"]["address"]
+                prop_address_raw = addr.get("line", "") or ""
+            elif prop.get("address"):
+                if isinstance(prop["address"], dict):
+                    prop_address_raw = prop["address"].get("line", "") or ""
+                else:
+                    prop_address_raw = str(prop["address"]) if prop["address"] else ""
+            
+            # Skip if no address found
+            if not prop_address_raw:
+                continue
+                
+            prop_address_raw = prop_address_raw.lower()
+            
+            # Normalize property address too
+            prop_address = re.sub(r'\s*[#,]?\s*(unit|apt|apartment|suite|ste)\s*[\d\w-]+', '', prop_address_raw, flags=re.IGNORECASE).strip()
+            
+            # Extract street number from property
+            prop_street_number = re.match(r'^(\d+)', prop_address)
+            prop_street_number = prop_street_number.group(1) if prop_street_number else ""
+            
+            # Match by street number and partial street name
+            if street_number and prop_street_number == street_number:
+                # Numbers match, check if street names are similar
+                if street_address in prop_address or prop_address in street_address:
+                    matched_property = prop
+                    break
+            # Fallback: fuzzy match entire address
+            elif street_address in prop_address_raw or prop_address_raw in street_address:
+                matched_property = prop
+                break
+        
+        if not matched_property:
+            # Return helpful error with found addresses
+            found_addresses = []
+            for prop in properties[:5]:  # Show first 5
+                if prop.get("location") and prop["location"].get("address"):
+                    found_addresses.append(prop["location"]["address"].get("line", ""))
+            
+            raise HTTPException(
+                status_code=404,
+                detail=f"Address '{street_address}' not found in ZIP {zip_code}. Found addresses: {', '.join(found_addresses[:3])}. Try entering full address with exact street name."
+            )
+        
+        # Step 3: Extract property details
+        description = matched_property.get("description", {})
+        location = matched_property.get("location", {}).get("address", {})
+        
+        bedrooms = (
+            description.get("beds") or 
+            matched_property.get("beds") or 
+            description.get("beds_min") or
+            0
+        )
+        
+        bathrooms_full = (
+            description.get("baths_full") or 
+            matched_property.get("baths_full") or 
+            description.get("baths") or
+            0
+        )
+        
+        bathrooms_half = (
+            description.get("baths_half") or 
+            matched_property.get("baths_half") or 
+            0
+        )
+        
+        bathrooms = bathrooms_full + (bathrooms_half * 0.5)
+        bathrooms = int(bathrooms) if bathrooms == int(bathrooms) else bathrooms
+        
+        sqft = (
+            description.get("sqft") or 
+            matched_property.get("sqft") or
+            description.get("lot_sqft") or
+            0
+        )
+        
+        lot_sqft = (
+            description.get("lot_sqft") or 
+            matched_property.get("lot_sqft") or 
+            0
+        )
+        
+        lot_acres = round(lot_sqft / 43560, 2) if lot_sqft else 0
+        
+        garage = (
+            description.get("garage") or 
+            matched_property.get("garage") or
+            description.get("garage_spaces") or 
+            matched_property.get("garage_spaces") or
+            0
+        )
+        
+        year_built = (
+            description.get("year_built") or 
+            matched_property.get("year_built") or 
+            None
+        )
+        
+        property_type = (
+            description.get("type") or 
+            matched_property.get("prop_type") or 
+            matched_property.get("type") or
+            "Unknown"
+        )
+        
+        # Extract primary photo URL
+        photo_url = None
+        if matched_property.get("primary_photo"):
+            if isinstance(matched_property["primary_photo"], dict):
+                photo_url = matched_property["primary_photo"].get("href")
+            elif isinstance(matched_property["primary_photo"], str):
+                photo_url = matched_property["primary_photo"]
+        elif matched_property.get("photos") and len(matched_property["photos"]) > 0:
+            first_photo = matched_property["photos"][0]
+            if isinstance(first_photo, dict):
+                photo_url = first_photo.get("href")
+            elif isinstance(first_photo, str):
+                photo_url = first_photo
+        elif matched_property.get("thumbnail"):
+            photo_url = matched_property.get("thumbnail")
+        
+        # Build full validated address
+        full_address = f"{location.get('line', '')}, {location.get('city', '')}, {location.get('state_code', '')} {location.get('postal_code', '')}"
+        full_address = full_address.strip().strip(',')
+        
+        return {
+            "success": True,
+            "data": {
+                "address": full_address or address,
+                "bedrooms": bedrooms,
+                "bathrooms": bathrooms,
+                "square_feet": sqft,
+                "lot_acres": lot_acres,
+                "garage_cars": garage,
+                "year_built": year_built,
+                "property_type": property_type,
+                "photo_url": photo_url
+            },
+            "matched_from_zip": zip_code,
+            "properties_searched": len(properties)
+        }
+        
+    except HTTPException:
+        raise
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="Request to Realtor API timed out")
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Error connecting to Realtor API: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing property data: {str(e)}")
 
 
 if __name__ == "__main__":

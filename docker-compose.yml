@@ -12,6 +12,9 @@ services:
       - ./database:/database
     environment:
       - PYTHONUNBUFFERED=1
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
+    env_file:
+      - .env
     restart: unless-stopped
     container_name: househunter-app
     networks:
