@@ -31,7 +31,10 @@ def get_user_id(x_user_id: Optional[str] = Header(None)) -> str:
 
 # User authentication models
 class UserRegister(BaseModel):
+    first_name: str
+    last_name: str
     email: EmailStr
+    phone: str
     password: str
 
 
@@ -42,7 +45,10 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
+    first_name: str
+    last_name: str
     email: str
+    phone: str
 
 # Mount static files
 static_path = Path(__file__).parent / "static"
@@ -59,10 +65,28 @@ async def read_root():
     return HTMLResponse(content="<h1>HouseHunter - Template not found</h1>", status_code=404)
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_policy():
+    """Serve the Privacy Policy page"""
+    html_path = Path(__file__).parent / "templates" / "privacy.html"
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text(), status_code=200)
+    return HTMLResponse(content="<h1>Privacy Policy - Page not found</h1>", status_code=404)
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_of_use():
+    """Serve the Terms of Use page"""
+    html_path = Path(__file__).parent / "templates" / "terms.html"
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text(), status_code=200)
+    return HTMLResponse(content="<h1>Terms of Use - Page not found</h1>", status_code=404)
+
+
 @app.post("/register", response_model=UserResponse)
 async def register(user: UserRegister):
     """Register a new user account"""
-    result = db.create_user(user.email, user.password)
+    result = db.create_user(user.first_name, user.last_name, user.email, user.phone, user.password)
     if not result:
         raise HTTPException(status_code=400, detail="Email already registered")
     return UserResponse(**result)

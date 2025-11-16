@@ -36,11 +36,37 @@ def init_db():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
+                phone TEXT NOT NULL,
                 password_hash TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # Check if users table needs migration for new columns
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        users_table_exists = cursor.fetchone() is not None
+        
+        if users_table_exists:
+            cursor.execute("PRAGMA table_info(users)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'first_name' not in columns:
+                print("Migrating database: Adding first_name column to users table...")
+                cursor.execute("ALTER TABLE users ADD COLUMN first_name TEXT DEFAULT ''")
+                print("Migration complete: first_name column added")
+            
+            if 'last_name' not in columns:
+                print("Migrating database: Adding last_name column to users table...")
+                cursor.execute("ALTER TABLE users ADD COLUMN last_name TEXT DEFAULT ''")
+                print("Migration complete: last_name column added")
+            
+            if 'phone' not in columns:
+                print("Migrating database: Adding phone column to users table...")
+                cursor.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''")
+                print("Migration complete: phone column added")
         
         # Check if houses table exists and if it has user_id column
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='houses'")
@@ -249,7 +275,7 @@ def _row_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
 
 
 # User authentication functions
-def create_user(email: str, password: str) -> Optional[Dict[str, Any]]:
+def create_user(first_name: str, last_name: str, email: str, phone: str, password: str) -> Optional[Dict[str, Any]]:
     """Create a new user account"""
     import hashlib
     password_hash = hashlib.sha256(password.encode()).hexdigest()
@@ -258,14 +284,17 @@ def create_user(email: str, password: str) -> Optional[Dict[str, Any]]:
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO users (email, password_hash)
-                VALUES (?, ?)
-            """, (email, password_hash))
+                INSERT INTO users (first_name, last_name, email, phone, password_hash)
+                VALUES (?, ?, ?, ?, ?)
+            """, (first_name, last_name, email, phone, password_hash))
             
             user_id = cursor.lastrowid
             return {
                 'id': user_id,
-                'email': email
+                'first_name': first_name,
+                'last_name': last_name,
+                'email': email,
+                'phone': phone
             }
     except sqlite3.IntegrityError:
         # Email already exists
@@ -280,7 +309,7 @@ def verify_user(email: str, password: str) -> Optional[Dict[str, Any]]:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, email FROM users 
+            SELECT id, first_name, last_name, email, phone FROM users 
             WHERE email = ? AND password_hash = ?
         """, (email, password_hash))
         
@@ -288,7 +317,10 @@ def verify_user(email: str, password: str) -> Optional[Dict[str, Any]]:
         if row:
             return {
                 'id': row['id'],
-                'email': row['email']
+                'first_name': row['first_name'],
+                'last_name': row['last_name'],
+                'email': row['email'],
+                'phone': row['phone']
             }
         return None
 
