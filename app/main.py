@@ -10,6 +10,7 @@ from pydantic import BaseModel, EmailStr
 
 from models import House, HouseResponse, HouseFeatures, calculate_score
 import db
+import property_cache
 
 app = FastAPI(title="HouseHunter", description="House Rating & Decision Tool")
 
@@ -18,6 +19,7 @@ app = FastAPI(title="HouseHunter", description="House Rating & Decision Tool")
 async def startup_event():
     """Initialize database on application startup"""
     db.init_db()
+    property_cache.init_cache_db()
     print("Database initialized successfully")
 
 
@@ -96,7 +98,8 @@ async def add_house(house: House, user_id: str = Header(None, alias="X-User-ID")
         notes=house.notes,
         photo=house.photo,
         score=score,
-        score_breakdown=breakdown
+        score_breakdown=breakdown,
+        price=house.price
     )
     
     print(f"ADD HOUSE - Photo in response: {house_data.get('photo', 'MISSING')[:50] if house_data.get('photo') else 'None'}")
@@ -171,7 +174,8 @@ async def update_house(house_id: int, house: House, user_id: str = Header(None, 
         notes=house.notes,
         photo=house.photo,
         score=score,
-        score_breakdown=breakdown
+        score_breakdown=breakdown,
+        price=house.price
     )
     
     print(f"UPDATE HOUSE {house_id} - Photo in response: {house_data.get('photo', 'MISSING')[:50] if house_data and house_data.get('photo') else 'None'}")
@@ -366,6 +370,19 @@ async def lookup_address(address: str):
         
         zip_code = zip_match.group(1)
         
+        # Check cache first
+        cached_property = property_cache.lookup_cached_property(address, zip_code)
+        if cached_property:
+            print(f"Cache hit for address: {address}")
+            return {
+                "success": True,
+                "data": cached_property,
+                "matched_from_zip": zip_code,
+                "source": "cache"
+            }
+        
+        print(f"Cache miss for address: {address}, fetching from API")
+        
         # Extract street address - handle various comma placements
         # Case 1: "123 Main St, City, State ZIP" - standard format
         # Case 2: "123 Main St City, State ZIP" - comma only before state
@@ -448,6 +465,9 @@ async def lookup_address(address: str):
                 status_code=404,
                 detail=f"No properties found in ZIP code {zip_code}. The property might not be listed or use a different ZIP code."
             )
+        
+        # Cache all properties from this ZIP code search
+        property_cache.cache_properties(properties, zip_code)
         
         # Step 2: Find matching property by address
         matched_property = None
@@ -564,6 +584,15 @@ async def lookup_address(address: str):
             "Unknown"
         )
         
+        # Extract price
+        price = None
+        if matched_property.get("list_price"):
+            price = matched_property["list_price"]
+        elif matched_property.get("price"):
+            price = matched_property["price"]
+        elif description.get("sold_price"):
+            price = description["sold_price"]
+        
         # Extract primary photo URL
         photo_url = None
         if matched_property.get("primary_photo"):
@@ -595,10 +624,12 @@ async def lookup_address(address: str):
                 "garage_cars": garage,
                 "year_built": year_built,
                 "property_type": property_type,
+                "price": price,
                 "photo_url": photo_url
             },
             "matched_from_zip": zip_code,
-            "properties_searched": len(properties)
+            "properties_searched": len(properties),
+            "source": "api"
         }
         
     except HTTPException:

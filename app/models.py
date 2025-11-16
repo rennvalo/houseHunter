@@ -31,6 +31,7 @@ class House(BaseModel):
     features: HouseFeatures
     notes: Optional[str] = None
     photo: Optional[str] = None  # Base64 encoded image data
+    price: Optional[int] = None  # Price in dollars
 
 
 class HouseResponse(BaseModel):
@@ -40,6 +41,7 @@ class HouseResponse(BaseModel):
     features: HouseFeatures
     notes: Optional[str]
     photo: Optional[str]
+    price: Optional[int]
     score: int
     score_breakdown: dict
 
