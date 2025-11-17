@@ -122,12 +122,16 @@
                     <div class="mb-4">
                         <div class="flex border-b border-gray-300">
                             <button id="addHouseTab" onclick="switchFormTab('add')" 
-                                class="flex-1 py-2 px-4 font-medium text-blue-600 border-b-2 border-blue-600 transition">
+                                class="flex-1 py-2 px-2 font-medium text-blue-600 border-b-2 border-blue-600 transition text-sm">
                                 Add a House
                             </button>
-                            <button id="searchHouseTab" onclick="switchFormTab('search')" 
-                                class="flex-1 py-2 px-4 font-medium text-gray-500 hover:text-gray-700 transition">
-                                Search Houses
+                            <button id="searchZipTab" onclick="switchFormTab('searchzip')" 
+                                class="flex-1 py-2 px-2 font-medium text-gray-500 hover:text-gray-700 transition text-sm">
+                                Search by ZIP
+                            </button>
+                            <button id="searchCityTab" onclick="switchFormTab('searchcity')" 
+                                class="flex-1 py-2 px-2 font-medium text-gray-500 hover:text-gray-700 transition text-sm">
+                                Search by City
                             </button>
                         </div>
                     </div>
@@ -417,15 +421,15 @@
                     </div>
                     <!-- End Add House Section -->
 
-                    <!-- Search House Section -->
-                    <div id="searchHouseSection" class="hidden">
+                    <!-- Search by ZIP Section -->
+                    <div id="searchZipSection" class="hidden">
                         <div class="mb-4">
-                            <h2 class="text-2xl font-bold text-gray-800">Search Houses</h2>
-                            <p class="text-sm text-gray-600 mt-1">Find properties in a ZIP code within your budget</p>
+                            <h2 class="text-2xl font-bold text-gray-800">Search by ZIP Code</h2>
+                            <p class="text-sm text-gray-600 mt-1">Find properties in a specific ZIP code</p>
                         </div>
 
                         <!-- Login Required Notice -->
-                        <div id="searchLoginNotice" class="hidden mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                        <div id="searchZipLoginNotice" class="hidden mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
                             <p class="text-sm text-yellow-800">
                                 🔒 <strong>Login Required:</strong> This feature is only available to registered users.
                                 <button onclick="showAuthModal()" class="text-blue-600 hover:text-blue-800 font-medium underline ml-1">Login or Create Account</button>
@@ -433,7 +437,7 @@
                         </div>
 
                         <!-- Search Form -->
-                        <form id="searchHouseForm" class="space-y-4">
+                        <form id="searchZipForm" class="space-y-4">
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-1">ZIP Code *</label>
                                 <input type="text" id="searchZipCode" required pattern="\d{5}" maxlength="5"
@@ -444,30 +448,90 @@
 
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-1">Maximum Price *</label>
-                                <input type="number" id="searchMaxPrice" required min="0" step="1000"
+                                <input type="number" id="searchZipMaxPrice" required min="0" step="1000"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="700000">
                                 <p class="text-xs text-gray-500 mt-1">Properties at or below this price</p>
                             </div>
 
-                            <button type="submit" id="searchSubmitBtn"
+                            <button type="submit" id="searchZipSubmitBtn"
                                 class="w-full bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition font-semibold">
                                 🔍 Search Properties
                             </button>
                         </form>
 
                         <!-- Search Results -->
-                        <div id="searchResultsContainer" class="mt-6 hidden">
+                        <div id="searchZipResultsContainer" class="mt-6 hidden">
                             <div class="flex items-center justify-between mb-3">
                                 <h3 class="text-lg font-bold text-gray-800">Search Results</h3>
-                                <span id="searchResultsCount" class="text-sm text-gray-600">0 properties</span>
+                                <span id="searchZipResultsCount" class="text-sm text-gray-600">0 properties</span>
                             </div>
-                            <div id="searchResultsList" class="space-y-3 max-h-96 overflow-y-auto">
+                            <div id="searchZipResultsList" class="space-y-3 max-h-96 overflow-y-auto">
                                 <!-- Results will be populated here -->
                             </div>
                         </div>
                     </div>
-                    <!-- End Search House Section -->
+                    <!-- End Search by ZIP Section -->
+
+                    <!-- Search by City Section -->
+                    <div id="searchCitySection" class="hidden">
+                        <div class="mb-4">
+                            <h2 class="text-2xl font-bold text-gray-800">Search by City</h2>
+                            <p class="text-sm text-gray-600 mt-1">Find properties across an entire city</p>
+                        </div>
+
+                        <!-- Login Required Notice -->
+                        <div id="searchCityLoginNotice" class="hidden mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                            <p class="text-sm text-yellow-800">
+                                🔒 <strong>Login Required:</strong> This feature is only available to registered users.
+                                <button onclick="showAuthModal()" class="text-blue-600 hover:text-blue-800 font-medium underline ml-1">Login or Create Account</button>
+                            </p>
+                        </div>
+
+                        <!-- Search Form -->
+                        <form id="searchCityForm" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">City *</label>
+                                <input type="text" id="searchCity" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Boulder">
+                                <p class="text-xs text-gray-500 mt-1">Enter city name</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">State *</label>
+                                <input type="text" id="searchState" required pattern="[A-Za-z]{2}" maxlength="2"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="CO">
+                                <p class="text-xs text-gray-500 mt-1">Enter 2-letter state code (e.g., CO, CA, NY)</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Maximum Price *</label>
+                                <input type="number" id="searchCityMaxPrice" required min="0" step="1000"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="700000">
+                                <p class="text-xs text-gray-500 mt-1">Properties at or below this price</p>
+                            </div>
+
+                            <button type="submit" id="searchCitySubmitBtn"
+                                class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition font-semibold">
+                                🏙️ Search City
+                            </button>
+                        </form>
+
+                        <!-- Search Results -->
+                        <div id="searchCityResultsContainer" class="mt-6 hidden">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-lg font-bold text-gray-800">Search Results</h3>
+                                <span id="searchCityResultsCount" class="text-sm text-gray-600">0 properties</span>
+                            </div>
+                            <div id="searchCityResultsList" class="space-y-3 max-h-96 overflow-y-auto">
+                                <!-- Results will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End Search by City Section -->
                 </div>
             </div>
 
@@ -1288,46 +1352,66 @@
         // Tab switching for Add/Search House
         function switchFormTab(tab) {
             const addTab = document.getElementById('addHouseTab');
-            const searchTab = document.getElementById('searchHouseTab');
+            const searchZipTab = document.getElementById('searchZipTab');
+            const searchCityTab = document.getElementById('searchCityTab');
             const addSection = document.getElementById('addHouseSection');
-            const searchSection = document.getElementById('searchHouseSection');
-            const searchLoginNotice = document.getElementById('searchLoginNotice');
+            const searchZipSection = document.getElementById('searchZipSection');
+            const searchCitySection = document.getElementById('searchCitySection');
+
+            // Remove active class from all tabs
+            [addTab, searchZipTab, searchCityTab].forEach(t => {
+                t.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                t.classList.add('text-gray-500');
+            });
+
+            // Hide all sections
+            [addSection, searchZipSection, searchCitySection].forEach(s => s.classList.add('hidden'));
 
             if (tab === 'add') {
-                // Switch to Add House tab
                 addTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
                 addTab.classList.remove('text-gray-500');
-                searchTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-                searchTab.classList.add('text-gray-500');
                 addSection.classList.remove('hidden');
-                searchSection.classList.add('hidden');
-            } else if (tab === 'search') {
-                // Switch to Search House tab
-                searchTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-                searchTab.classList.remove('text-gray-500');
-                addTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-                addTab.classList.add('text-gray-500');
-                searchSection.classList.remove('hidden');
-                addSection.classList.add('hidden');
+            } else if (tab === 'searchzip') {
+                searchZipTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                searchZipTab.classList.remove('text-gray-500');
+                searchZipSection.classList.remove('hidden');
 
                 // Check if user is logged in
                 const authUser = localStorage.getItem(USER_AUTH_KEY);
+                const loginNotice = document.getElementById('searchZipLoginNotice');
+                const form = document.getElementById('searchZipForm');
                 if (!authUser) {
-                    searchLoginNotice.classList.remove('hidden');
-                    document.getElementById('searchHouseForm').classList.add('hidden');
+                    loginNotice.classList.remove('hidden');
+                    form.classList.add('hidden');
                 } else {
-                    searchLoginNotice.classList.add('hidden');
-                    document.getElementById('searchHouseForm').classList.remove('hidden');
+                    loginNotice.classList.add('hidden');
+                    form.classList.remove('hidden');
+                }
+            } else if (tab === 'searchcity') {
+                searchCityTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                searchCityTab.classList.remove('text-gray-500');
+                searchCitySection.classList.remove('hidden');
+
+                // Check if user is logged in
+                const authUser = localStorage.getItem(USER_AUTH_KEY);
+                const loginNotice = document.getElementById('searchCityLoginNotice');
+                const form = document.getElementById('searchCityForm');
+                if (!authUser) {
+                    loginNotice.classList.remove('hidden');
+                    form.classList.add('hidden');
+                } else {
+                    loginNotice.classList.add('hidden');
+                    form.classList.remove('hidden');
                 }
             }
         }
 
-        // Search house form submission
-        document.getElementById('searchHouseForm').addEventListener('submit', async (e) => {
+        // Search by ZIP form submission
+        document.getElementById('searchZipForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const zipCode = document.getElementById('searchZipCode').value.trim();
-            const maxPrice = parseInt(document.getElementById('searchMaxPrice').value);
+            const maxPrice = parseInt(document.getElementById('searchZipMaxPrice').value);
             
             // Verify user is logged in
             const authUser = localStorage.getItem(USER_AUTH_KEY);
@@ -1338,7 +1422,7 @@
             }
             
             // Show loading state
-            const submitBtn = document.getElementById('searchSubmitBtn');
+            const submitBtn = document.getElementById('searchZipSubmitBtn');
             const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '⏳ Searching...';
             submitBtn.disabled = true;
@@ -1356,29 +1440,92 @@
                 const result = await response.json();
                 
                 if (result.success && result.properties && result.properties.length > 0) {
-                    displaySearchResults(result.properties, zipCode, maxPrice);
+                    displaySearchResults(result.properties, 'zip', `ZIP ${zipCode}`, maxPrice);
                 } else {
                     alert(`No properties found in ZIP code ${zipCode} for $${maxPrice.toLocaleString()} or less.\\n\\nTry a different ZIP code or higher price.`);
-                    document.getElementById('searchResultsContainer').classList.add('hidden');
+                    document.getElementById('searchZipResultsContainer').classList.add('hidden');
                 }
                 
             } catch (error) {
                 console.error('Search error:', error);
                 alert(`Search failed: ${error.message}`);
-                document.getElementById('searchResultsContainer').classList.add('hidden');
+                document.getElementById('searchZipResultsContainer').classList.add('hidden');
             } finally {
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             }
         });
 
-        // Display search results
-        function displaySearchResults(properties, zipCode, maxPrice) {
-            const container = document.getElementById('searchResultsContainer');
-            const list = document.getElementById('searchResultsList');
-            const count = document.getElementById('searchResultsCount');
+        // Search by City form submission
+        document.getElementById('searchCityForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
             
-            count.textContent = `${properties.length} ${properties.length === 1 ? 'property' : 'properties'} found`;
+            const city = document.getElementById('searchCity').value.trim();
+            const state = document.getElementById('searchState').value.trim().toUpperCase();
+            const maxPrice = parseInt(document.getElementById('searchCityMaxPrice').value);
+            
+            // Verify user is logged in
+            const authUser = localStorage.getItem(USER_AUTH_KEY);
+            if (!authUser) {
+                alert('This feature is only available to registered users. Please login or create an account.');
+                showAuthModal();
+                return;
+            }
+            
+            // Show loading state
+            const submitBtn = document.getElementById('searchCitySubmitBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '⏳ Searching city...';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`/search_by_city?city=${encodeURIComponent(city)}&state=${state}&max_price=${maxPrice}`, {
+                    headers: getHeaders()
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Search failed');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.properties && result.properties.length > 0) {
+                    displaySearchResults(result.properties, 'city', `${result.city}, ${result.state}`, maxPrice, result);
+                } else {
+                    alert(`No properties found in ${city}, ${state} for $${maxPrice.toLocaleString()} or less.\\n\\nTry a different city or higher price.`);
+                    document.getElementById('searchCityResultsContainer').classList.add('hidden');
+                }
+                
+            } catch (error) {
+                console.error('City search error:', error);
+                alert(`Search failed: ${error.message}`);
+                document.getElementById('searchCityResultsContainer').classList.add('hidden');
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Display search results (works for both ZIP and City searches)
+        function displaySearchResults(properties, searchType, searchLabel, maxPrice, extraInfo = null) {
+            let container, list, count;
+            
+            if (searchType === 'zip') {
+                container = document.getElementById('searchZipResultsContainer');
+                list = document.getElementById('searchZipResultsList');
+                count = document.getElementById('searchZipResultsCount');
+            } else if (searchType === 'city') {
+                container = document.getElementById('searchCityResultsContainer');
+                list = document.getElementById('searchCityResultsList');
+                count = document.getElementById('searchCityResultsCount');
+            }
+            
+            let countText = `${properties.length} ${properties.length === 1 ? 'property' : 'properties'} found`;
+            if (extraInfo && extraInfo.zip_codes_searched) {
+                countText += ` (searched ${extraInfo.zip_codes_searched.length} ZIP codes)`;
+            }
+            count.textContent = countText;
             
             list.innerHTML = properties.map(prop => `
                 <div class="border border-gray-200 rounded-lg p-3 hover:shadow-md transition bg-white">

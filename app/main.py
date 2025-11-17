@@ -366,6 +366,35 @@ async def sync_houses(houses: List[dict], user_id: str = Header(None, alias="X-U
     }
 
 
+def get_zip_codes_for_city(city: str, state: str) -> List[str]:
+    """
+    Look up ZIP codes for a given city and state.
+    Uses the free ZipCodeAPI service.
+    
+    Args:
+        city: City name (e.g., "Boulder")
+        state: State code (e.g., "CO")
+        
+    Returns:
+        List of ZIP codes for the city
+    """
+    try:
+        # Use ZipCodeAPI (free service)
+        url = f"https://api.zippopotam.us/us/{state.upper()}/{city.replace(' ', '%20')}"
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            zip_codes = [place['post code'] for place in data.get('places', [])]
+            return zip_codes
+        else:
+            # Fallback: return empty list
+            return []
+    except Exception as e:
+        print(f"Error fetching ZIP codes for {city}, {state}: {str(e)}")
+        return []
+
+
 @app.get("/search_properties")
 async def search_properties(zip_code: str, max_price: int, user_id: str = Header(None, alias="X-User-ID")):
     """
@@ -551,6 +580,209 @@ async def search_properties(zip_code: str, max_price: int, user_id: str = Header
         raise HTTPException(status_code=502, detail=f"Error connecting to Realtor API: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing property data: {str(e)}")
+
+
+@app.get("/search_by_city")
+async def search_by_city(city: str, state: str, max_price: int, user_id: str = Header(None, alias="X-User-ID")):
+    """
+    Search for properties in a city at or below a maximum price.
+    Looks up all ZIP codes for the city and searches each one.
+    Only available to registered users.
+    """
+    # Verify user is registered (not anonymous)
+    user_id = user_id if user_id else "anonymous"
+    if user_id == "anonymous" or not user_id.startswith("user_"):
+        raise HTTPException(
+            status_code=403,
+            detail="This feature is only available to registered users. Please login or create an account."
+        )
+    
+    # Get API key from environment variable
+    api_key = os.getenv("RAPIDAPI_KEY")
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="RapidAPI key not configured. Please set RAPIDAPI_KEY environment variable."
+        )
+    
+    try:
+        # Validate state code (2 letters)
+        import re
+        if not re.match(r'^[A-Z]{2}$', state.upper()):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid state code. Please use 2-letter state code (e.g., CO, CA, NY)"
+            )
+        
+        # Look up ZIP codes for the city
+        zip_codes = get_zip_codes_for_city(city, state)
+        
+        if not zip_codes:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No ZIP codes found for {city}, {state}. Please check the city and state spelling."
+            )
+        
+        print(f"Found {len(zip_codes)} ZIP codes for {city}, {state}: {zip_codes}")
+        
+        # Search properties in each ZIP code
+        all_properties = []
+        searched_zips = []
+        cache_hits = 0
+        api_calls = 0
+        
+        for zip_code in zip_codes:
+            try:
+                # Check cache first
+                cached_properties = property_cache.search_cached_properties(zip_code, max_price)
+                if cached_properties:
+                    print(f"Cache hit for ZIP {zip_code}")
+                    all_properties.extend(cached_properties)
+                    searched_zips.append(zip_code)
+                    cache_hits += 1
+                    continue
+                
+                # Not in cache, fetch from API
+                print(f"Cache miss for ZIP {zip_code}, fetching from API")
+                api_calls += 1
+                
+                search_url = "https://realty-in-us.p.rapidapi.com/properties/v3/list"
+                headers = {
+                    "Content-Type": "application/json",
+                    "X-RapidAPI-Key": api_key,
+                    "X-RapidAPI-Host": "realty-in-us.p.rapidapi.com"
+                }
+                
+                payload = {
+                    "limit": 200,
+                    "offset": 0,
+                    "postal_code": zip_code,
+                    "status": ["for_sale", "ready_to_build"]
+                }
+                
+                search_response = requests.post(search_url, headers=headers, json=payload, timeout=15)
+                
+                if search_response.status_code == 403:
+                    print(f"API authentication failed for ZIP {zip_code}")
+                    continue
+                
+                if not search_response.ok:
+                    print(f"API error for ZIP {zip_code}: {search_response.status_code}")
+                    continue
+                
+                search_data = search_response.json()
+                
+                # Extract properties
+                properties = []
+                if search_data.get("data") and search_data["data"].get("home_search"):
+                    properties = search_data["data"]["home_search"].get("results", [])
+                elif search_data.get("data") and search_data["data"].get("results"):
+                    properties = search_data["data"]["results"]
+                
+                if not properties:
+                    print(f"No properties found in ZIP {zip_code}")
+                    continue
+                
+                # Cache all properties
+                property_cache.cache_properties(properties, zip_code)
+                
+                # Filter and format properties
+                for prop in properties:
+                    price = prop.get("list_price") or prop.get("price")
+                    
+                    if not price or price > max_price:
+                        continue
+                    
+                    description = prop.get("description", {})
+                    location = prop.get("location", {}).get("address", {})
+                    
+                    full_address = f"{location.get('line', '')}, {location.get('city', '')}, {location.get('state_code', '')} {location.get('postal_code', '')}"
+                    full_address = full_address.strip().strip(',')
+                    
+                    bedrooms = description.get("beds") or prop.get("beds") or 0
+                    bathrooms_full = description.get("baths_full") or prop.get("baths_full") or 0
+                    bathrooms_half = description.get("baths_half") or prop.get("baths_half") or 0
+                    bathrooms = bathrooms_full + (bathrooms_half * 0.5)
+                    bathrooms = int(bathrooms) if bathrooms == int(bathrooms) else bathrooms
+                    
+                    sqft = description.get("sqft") or prop.get("sqft") or 0
+                    lot_sqft = description.get("lot_sqft") or prop.get("lot_sqft") or 0
+                    lot_acres = round(lot_sqft / 43560, 2) if lot_sqft else 0
+                    garage = description.get("garage") or prop.get("garage") or 0
+                    
+                    photo_url = None
+                    if prop.get("primary_photo"):
+                        if isinstance(prop["primary_photo"], dict):
+                            photo_url = prop["primary_photo"].get("href")
+                        elif isinstance(prop["primary_photo"], str):
+                            photo_url = prop["primary_photo"]
+                    elif prop.get("photos") and len(prop["photos"]) > 0:
+                        first_photo = prop["photos"][0]
+                        if isinstance(first_photo, dict):
+                            photo_url = first_photo.get("href")
+                        elif isinstance(first_photo, str):
+                            photo_url = first_photo
+                    elif prop.get("thumbnail"):
+                        photo_url = prop.get("thumbnail")
+                    
+                    all_properties.append({
+                        "address": full_address or "Address not available",
+                        "price": price,
+                        "bedrooms": bedrooms,
+                        "bathrooms": bathrooms,
+                        "square_feet": sqft,
+                        "lot_acres": lot_acres,
+                        "garage_cars": garage,
+                        "photo_url": photo_url,
+                        "property_type": description.get("type") or prop.get("prop_type") or "Unknown",
+                        "year_built": description.get("year_built") or prop.get("year_built"),
+                        "zip_code": zip_code
+                    })
+                
+                searched_zips.append(zip_code)
+                
+            except Exception as e:
+                print(f"Error searching ZIP {zip_code}: {str(e)}")
+                continue
+        
+        if not all_properties:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No properties found in {city}, {state} for ${max_price:,} or less. Searched {len(searched_zips)} ZIP codes."
+            )
+        
+        # Remove duplicates by address
+        seen_addresses = set()
+        unique_properties = []
+        for prop in all_properties:
+            if prop["address"] not in seen_addresses:
+                seen_addresses.add(prop["address"])
+                unique_properties.append(prop)
+        
+        # Sort by price (lowest first)
+        unique_properties.sort(key=lambda x: x["price"])
+        
+        return {
+            "success": True,
+            "city": city.title(),
+            "state": state.upper(),
+            "max_price": max_price,
+            "zip_codes_searched": searched_zips,
+            "zip_codes_found": len(zip_codes),
+            "count": len(unique_properties),
+            "properties": unique_properties,
+            "cache_hits": cache_hits,
+            "api_calls": api_calls,
+            "source": "city_search"
+        }
+        
+    except HTTPException:
+        raise
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="Request to location API timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching by city: {str(e)}")
 
 
 @app.get("/lookup_address")
