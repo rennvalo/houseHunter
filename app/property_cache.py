@@ -228,7 +228,7 @@ def cache_properties(properties: List[Dict[Any, Any]], zip_code: str):
 def lookup_cached_property(address: str, zip_code: str) -> Optional[Dict[str, Any]]:
     """
     Look up a property in the cache by address and ZIP code.
-    Returns None if not found or if cache is older than 30 days.
+    Returns None if not found or if cache is older than 360 days.
     
     Args:
         address: Full street address (will be normalized for matching)
@@ -269,8 +269,8 @@ def lookup_cached_property(address: str, zip_code: str) -> Optional[Dict[str, An
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Calculate cutoff date (30 days ago)
-    cutoff_date = (datetime.now() - timedelta(days=30)).isoformat()
+    # Calculate cutoff date (360 days ago)
+    cutoff_date = (datetime.now() - timedelta(days=360)).isoformat()
     
     # Search for matching address in this ZIP code
     cursor.execute("""
@@ -305,13 +305,13 @@ def lookup_cached_property(address: str, zip_code: str) -> Optional[Dict[str, An
     return None
 
 
-def get_cached_properties_by_zip(zip_code: str, max_age_days: int = 30) -> List[Dict[str, Any]]:
+def get_cached_properties_by_zip(zip_code: str, max_age_days: int = 360) -> List[Dict[str, Any]]:
     """
     Get all cached properties for a ZIP code that are within max_age_days old.
     
     Args:
         zip_code: ZIP code to search
-        max_age_days: Maximum age of cached data in days (default 30)
+        max_age_days: Maximum age of cached data in days (default 360)
         
     Returns:
         List of property dicts
@@ -333,6 +333,59 @@ def get_cached_properties_by_zip(zip_code: str, max_age_days: int = 30) -> List[
     conn.close()
     
     return [dict(row) for row in rows]
+
+
+def search_cached_properties(zip_code: str, max_price: int, max_age_days: int = 360) -> Optional[List[Dict[str, Any]]]:
+    """
+    Search cached properties by ZIP code and max price.
+    Returns None if no properties found or cache is too old.
+    
+    Args:
+        zip_code: ZIP code to search
+        max_price: Maximum price to filter by
+        max_age_days: Maximum age of cached data in days (default 360)
+        
+    Returns:
+        List of property dicts if found and fresh, None otherwise
+    """
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cutoff_date = (datetime.now() - timedelta(days=max_age_days)).isoformat()
+    
+    cursor.execute("""
+        SELECT * FROM cached_properties
+        WHERE zip_code = ?
+        AND price IS NOT NULL
+        AND price <= ?
+        AND last_updated > ?
+        ORDER BY price ASC
+    """, (zip_code, max_price, cutoff_date))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    if not rows:
+        return None
+    
+    # Format results to match search endpoint response
+    properties = []
+    for row in rows:
+        properties.append({
+            "address": row["address"],
+            "price": row["price"],
+            "bedrooms": row["bedrooms"],
+            "bathrooms": row["bathrooms"],
+            "square_feet": row["sqft"],
+            "lot_acres": row["lot_acres"],
+            "garage_cars": row["garage_cars"],
+            "photo_url": row["photo_url"],
+            "property_type": row["property_type"],
+            "year_built": row["year_built"]
+        })
+    
+    return properties
 
 
 def clear_old_cache(days: int = 90):

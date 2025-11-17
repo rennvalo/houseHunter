@@ -115,16 +115,32 @@
 
         <!-- Main Content -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Add House Form -->
+            <!-- Add/Search House Form -->
             <div class="lg:col-span-1">
                 <div class="glass-effect rounded-lg shadow-xl p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 id="formTitle" class="text-2xl font-bold text-gray-800">Add a House</h2>
-                        <button type="button" id="cancelEditBtn" onclick="cancelEdit()" 
-                            class="hidden text-sm px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition">
-                            Cancel Edit
-                        </button>
+                    <!-- Tab Navigation -->
+                    <div class="mb-4">
+                        <div class="flex border-b border-gray-300">
+                            <button id="addHouseTab" onclick="switchFormTab('add')" 
+                                class="flex-1 py-2 px-4 font-medium text-blue-600 border-b-2 border-blue-600 transition">
+                                Add a House
+                            </button>
+                            <button id="searchHouseTab" onclick="switchFormTab('search')" 
+                                class="flex-1 py-2 px-4 font-medium text-gray-500 hover:text-gray-700 transition">
+                                Search Houses
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- Add House Section -->
+                    <div id="addHouseSection">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 id="formTitle" class="text-2xl font-bold text-gray-800">Add a House</h2>
+                            <button type="button" id="cancelEditBtn" onclick="cancelEdit()" 
+                                class="hidden text-sm px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition">
+                                Cancel Edit
+                            </button>
+                        </div>
                     <form id="addHouseForm" class="space-y-4">
                         <input type="hidden" id="editHouseId" value="">
                         <!-- Address -->
@@ -387,17 +403,71 @@
                         </div>
                     </form>
 
-                    <!-- Quick Actions -->
-                    <div class="mt-6 pt-4 border-t space-y-2">
-                        <button onclick="loadSeedData()" 
-                            class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition text-sm">
-                            Load Example Houses
-                        </button>
-                        <button onclick="clearAllHouses()" 
-                            class="w-full bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition text-sm">
-                            Clear All Houses
-                        </button>
+                        <!-- Quick Actions -->
+                        <div class="mt-6 pt-4 border-t space-y-2">
+                            <button onclick="loadSeedData()" 
+                                class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition text-sm">
+                                Load Example Houses
+                            </button>
+                            <button onclick="clearAllHouses()" 
+                                class="w-full bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition text-sm">
+                                Clear All Houses
+                            </button>
+                        </div>
                     </div>
+                    <!-- End Add House Section -->
+
+                    <!-- Search House Section -->
+                    <div id="searchHouseSection" class="hidden">
+                        <div class="mb-4">
+                            <h2 class="text-2xl font-bold text-gray-800">Search Houses</h2>
+                            <p class="text-sm text-gray-600 mt-1">Find properties in a ZIP code within your budget</p>
+                        </div>
+
+                        <!-- Login Required Notice -->
+                        <div id="searchLoginNotice" class="hidden mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                            <p class="text-sm text-yellow-800">
+                                🔒 <strong>Login Required:</strong> This feature is only available to registered users.
+                                <button onclick="showAuthModal()" class="text-blue-600 hover:text-blue-800 font-medium underline ml-1">Login or Create Account</button>
+                            </p>
+                        </div>
+
+                        <!-- Search Form -->
+                        <form id="searchHouseForm" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">ZIP Code *</label>
+                                <input type="text" id="searchZipCode" required pattern="\d{5}" maxlength="5"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="80303">
+                                <p class="text-xs text-gray-500 mt-1">Enter 5-digit ZIP code</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Maximum Price *</label>
+                                <input type="number" id="searchMaxPrice" required min="0" step="1000"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="700000">
+                                <p class="text-xs text-gray-500 mt-1">Properties at or below this price</p>
+                            </div>
+
+                            <button type="submit" id="searchSubmitBtn"
+                                class="w-full bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition font-semibold">
+                                🔍 Search Properties
+                            </button>
+                        </form>
+
+                        <!-- Search Results -->
+                        <div id="searchResultsContainer" class="mt-6 hidden">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-lg font-bold text-gray-800">Search Results</h3>
+                                <span id="searchResultsCount" class="text-sm text-gray-600">0 properties</span>
+                            </div>
+                            <div id="searchResultsList" class="space-y-3 max-h-96 overflow-y-auto">
+                                <!-- Results will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End Search House Section -->
                 </div>
             </div>
 
@@ -1214,6 +1284,210 @@
                 alert('Registration failed. Please try again.');
             }
         });
+
+        // Tab switching for Add/Search House
+        function switchFormTab(tab) {
+            const addTab = document.getElementById('addHouseTab');
+            const searchTab = document.getElementById('searchHouseTab');
+            const addSection = document.getElementById('addHouseSection');
+            const searchSection = document.getElementById('searchHouseSection');
+            const searchLoginNotice = document.getElementById('searchLoginNotice');
+
+            if (tab === 'add') {
+                // Switch to Add House tab
+                addTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                addTab.classList.remove('text-gray-500');
+                searchTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                searchTab.classList.add('text-gray-500');
+                addSection.classList.remove('hidden');
+                searchSection.classList.add('hidden');
+            } else if (tab === 'search') {
+                // Switch to Search House tab
+                searchTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                searchTab.classList.remove('text-gray-500');
+                addTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                addTab.classList.add('text-gray-500');
+                searchSection.classList.remove('hidden');
+                addSection.classList.add('hidden');
+
+                // Check if user is logged in
+                const authUser = localStorage.getItem(USER_AUTH_KEY);
+                if (!authUser) {
+                    searchLoginNotice.classList.remove('hidden');
+                    document.getElementById('searchHouseForm').classList.add('hidden');
+                } else {
+                    searchLoginNotice.classList.add('hidden');
+                    document.getElementById('searchHouseForm').classList.remove('hidden');
+                }
+            }
+        }
+
+        // Search house form submission
+        document.getElementById('searchHouseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const zipCode = document.getElementById('searchZipCode').value.trim();
+            const maxPrice = parseInt(document.getElementById('searchMaxPrice').value);
+            
+            // Verify user is logged in
+            const authUser = localStorage.getItem(USER_AUTH_KEY);
+            if (!authUser) {
+                alert('This feature is only available to registered users. Please login or create an account.');
+                showAuthModal();
+                return;
+            }
+            
+            // Show loading state
+            const submitBtn = document.getElementById('searchSubmitBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '⏳ Searching...';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`/search_properties?zip_code=${zipCode}&max_price=${maxPrice}`, {
+                    headers: getHeaders()
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Search failed');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.properties && result.properties.length > 0) {
+                    displaySearchResults(result.properties, zipCode, maxPrice);
+                } else {
+                    alert(`No properties found in ZIP code ${zipCode} for $${maxPrice.toLocaleString()} or less.\\n\\nTry a different ZIP code or higher price.`);
+                    document.getElementById('searchResultsContainer').classList.add('hidden');
+                }
+                
+            } catch (error) {
+                console.error('Search error:', error);
+                alert(`Search failed: ${error.message}`);
+                document.getElementById('searchResultsContainer').classList.add('hidden');
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Display search results
+        function displaySearchResults(properties, zipCode, maxPrice) {
+            const container = document.getElementById('searchResultsContainer');
+            const list = document.getElementById('searchResultsList');
+            const count = document.getElementById('searchResultsCount');
+            
+            count.textContent = `${properties.length} ${properties.length === 1 ? 'property' : 'properties'} found`;
+            
+            list.innerHTML = properties.map(prop => `
+                <div class="border border-gray-200 rounded-lg p-3 hover:shadow-md transition bg-white">
+                    <div class="flex gap-3 items-start">
+                        ${prop.photo_url ? `
+                            <div class="flex-shrink-0">
+                                <img src="${prop.photo_url}" alt="${prop.address}" class="w-20 h-20 object-cover rounded border border-gray-300">
+                            </div>
+                        ` : ''}
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-semibold text-sm text-gray-800 truncate">${prop.address}</h4>
+                            <p class="text-lg font-bold text-green-600">$${prop.price.toLocaleString()}</p>
+                            <div class="text-xs text-gray-600 mt-1">
+                                ${prop.bedrooms} bed • ${prop.bathrooms} bath • ${prop.square_feet.toLocaleString()} sqft
+                                ${prop.garage_cars > 0 ? ` • ${prop.garage_cars} car garage` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick='addSearchResultToHouses(${JSON.stringify(prop).replace(/'/g, "&apos;")})' 
+                        class="w-full mt-2 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition">
+                        + Add to My Houses
+                    </button>
+                </div>
+            `).join('');
+            
+            container.classList.remove('hidden');
+        }
+
+        // Add a search result property to user's houses
+        async function addSearchResultToHouses(property) {
+            // Verify user is logged in
+            const authUser = localStorage.getItem(USER_AUTH_KEY);
+            if (!authUser) {
+                alert('Please login to add houses to your list.');
+                return;
+            }
+            
+            try {
+                // Convert photo URL to base64 if available
+                let photoData = null;
+                if (property.photo_url) {
+                    try {
+                        const photoResponse = await fetch(property.photo_url);
+                        const blob = await photoResponse.blob();
+                        photoData = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => resolve(e.target.result);
+                            reader.readAsDataURL(blob);
+                        });
+                    } catch (error) {
+                        console.error('Error loading photo:', error);
+                    }
+                }
+                
+                // Create house data with basic features
+                const houseData = {
+                    address: property.address,
+                    notes: `Found via search - ${property.property_type || 'Property'}`,
+                    photo: photoData,
+                    price: property.price,
+                    features: {
+                        garage_cars: property.garage_cars || 0,
+                        bathrooms: Math.floor(property.bathrooms) || 0,
+                        bathroom_quality: 'normal',
+                        bedrooms: property.bedrooms || 0,
+                        square_feet: property.square_feet || 0,
+                        lot_acres: property.lot_acres || 0,
+                        nice_backyard: false,
+                        curb_appeal: false,
+                        appliances: {},
+                        basement: 0,
+                        privacy: 'normal',
+                        noise_level: 'normal',
+                        has_deck: false,
+                        patio_potential: false,
+                        has_pool: false,
+                        near_recreation: false,
+                        walking_shopping: false,
+                        has_hoa: false,
+                        hoa_monthly_fee: 0
+                    }
+                };
+                
+                // Add to database
+                const response = await fetch('/add_house', {
+                    method: 'POST',
+                    headers: getHeaders({
+                        'Content-Type': 'application/json',
+                    }),
+                    body: JSON.stringify(houseData)
+                });
+                
+                if (response.ok) {
+                    // Reload houses list
+                    loadHouses();
+                    
+                    // Switch back to Add House tab so user can see it was added
+                    switchFormTab('add');
+                    
+                    // Show success message
+                    alert(`✅ Property added to your list!\\n\\nYou can now edit it to add more features and improve the score.`);
+                } else {
+                    alert('Error adding property to your list');
+                }
+            } catch (error) {
+                console.error('Error adding search result:', error);
+                alert('Error adding property to your list');
+            }
+        }
 
         // Load houses on page load
         window.addEventListener('DOMContentLoaded', async () => {

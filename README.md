@@ -648,6 +648,95 @@ If you encounter issues not covered in the troubleshooting guide:
 
 ---
 
+## 🔮 Available RapidAPI Fields (Future Enhancements)
+
+The RapidAPI "Realty in US" integration currently provides bedrooms, bathrooms, square feet, lot size, garage, year built, price, and photos. Additional fields are available that could be integrated in future updates:
+
+### **Property Details**
+- `baths_full` - Number of full bathrooms (separate from half baths)
+- `baths_half` - Number of half bathrooms  
+- `virtual_tours` - Link to virtual tour/video walkthrough
+- `photo_count` - Total number of photos available
+- `matterport` - Boolean for 3D Matterport tour availability
+- `sub_type` - More specific property type (condo, townhouse, etc.)
+
+### **Location Data**
+- `coordinate.lat` / `coordinate.lon` - GPS coordinates (could enable map view)
+- `street_view_url` - Google Street View link
+- `county.fips_code` - County identification
+
+### **Listing Information**
+- `list_date` - When property was listed (calculate days on market)
+- `last_sold_date` - When property was last sold
+- `last_sold_price` - Previous sale price (compare to current price to identify flips/appreciation)
+- `estimate.estimate` - Estimated market value from Realtor.com (compare to list price)
+- `price_reduced_amount` - How much price has been reduced (negotiation opportunity)
+
+### **Status Flags**
+- `flags.is_price_reduced` - Price was reduced (boolean)
+- `flags.is_new_construction` - Brand new home (boolean)
+- `flags.is_foreclosure` - Foreclosure property (boolean)
+- `flags.is_new_listing` - Recently listed (boolean)
+- `flags.is_contingent` - Contingent offer (boolean)
+- `flags.is_pending` - Pending sale (boolean)
+
+### **Agent/Broker Information**
+- `advertisers[0].name` - Listing agent name
+- `branding[0].name` - Real estate company name
+- `branding[0].phone` - Contact phone number
+
+### **Most Valuable Future Additions**
+1. **Last Sold Price + Date** - Identify flips and value appreciation/depreciation
+2. **Days on Market** - Calculate from `list_date` to gauge demand
+3. **Price Reduced Flag** - Spot negotiation opportunities
+4. **Estimate vs List Price** - See if property is overpriced (e.g., $478k estimate vs $599k list price)
+5. **Virtual Tour Link** - Quick preview without visiting
+6. **New Construction Flag** - Important consideration for buyers
+7. **GPS Coordinates** - Enable map view showing all properties
+8. **Foreclosure/Contingent Flags** - Understand property status and risks
+
+**Example API Response:**
+```json
+{
+  "property_id": "2442111059",
+  "location": {
+    "address": {
+      "line": "7130 Xavier St",
+      "city": "Westminster",
+      "state_code": "CO",
+      "postal_code": "80030",
+      "coordinate": { "lat": 39.826399, "lon": -105.048712 }
+    }
+  },
+  "description": {
+    "type": "single_family",
+    "beds": 4,
+    "baths": 2,
+    "sqft": 1922,
+    "lot_sqft": 7980,
+    "baths_full": 1,
+    "baths_half": null
+  },
+  "list_price": 599000,
+  "last_sold_price": 105500,
+  "last_sold_date": "1994-06-30",
+  "list_date": "2025-11-08T03:05:08.000000Z",
+  "estimate": { "estimate": 478100 },
+  "flags": {
+    "is_price_reduced": null,
+    "is_new_construction": null,
+    "is_pending": true
+  },
+  "virtual_tours": [
+    { "href": "https://example.com/tour" }
+  ]
+}
+```
+
+These fields could enhance the scoring system, provide better property insights, and help users make more informed decisions. Implementation would require updates to the data models, caching system, and UI to display the additional information.
+
+---
+
 **Happy House Hunting! 🏡**
 
 *Made with ❤️ for smart homebuyers*
