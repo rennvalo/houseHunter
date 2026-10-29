@@ -20,6 +20,14 @@ services:
     networks:
       - frontend  # Same network as Nginx Proxy Manager
 
+  # Cloudflare Tunnel Service
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - frontend  # Keeps it on the same network to talk to your web app
+
 networks:
   frontend:
-    external: true  # Ensure this matches an existing external
+    external: true  # Ensure this matches an existing external network
